@@ -40,7 +40,7 @@ cogno/
 🐳 Con Docker (recomendado)
 # Clonar el repositorio
 git clone <repo-url>
-cd cogno
+cd teamwork
 
 # Iniciar servicios
 docker-compose up -d
