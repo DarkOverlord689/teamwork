@@ -9,26 +9,48 @@ SMATC-UPAO permite evaluar dinámicas de trabajo colaborativo mediante el análi
 
 🛠️ Tech Stack
 🔙 Backend
+
 Python 3.11+
+
 FastAPI
+
 PyTorch
+
 MediaPipe
+
 Pyannote
+
 Whisper
+
 Llama 3.1
+
+
 🎨 Frontend
+
 React 18+
+
 TypeScript 5.3+
+
 Material UI
+
 Redux Toolkit
+
 D3.js
+
 🗄️ Base de Datos
+
 PostgreSQL 16
+
 Redis 7.2
+
 MinIO (compatible con S3)
+
 ⚙️ Infraestructura
+
 Docker
+
 Docker Compose
+
 Nginx
 📁 Estructura del Proyecto
 cogno/
