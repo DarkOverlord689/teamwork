@@ -154,11 +154,11 @@ export default function GroupDetail() {
     const initial: ValidationFormState = {};
     for (const s of scores) {
       initial[s.student_id] = {
-        collaboration: String(s.collaboration ?? ""),
-        communication: String(s.communication ?? ""),
-        responsibility: String(s.responsibility ?? ""),
-        leadership: String(s.leadership ?? ""),
-        technical_contribution: String(s.technical_contribution ?? ""),
+        collaboration: s.collaboration != null ? s.collaboration.toFixed(2) : "",
+        communication: s.communication != null ? s.communication.toFixed(2) : "",
+        responsibility: s.responsibility != null ? s.responsibility.toFixed(2) : "",
+        leadership: s.leadership != null ? s.leadership.toFixed(2) : "",
+        technical_contribution: s.technical_contribution != null ? s.technical_contribution.toFixed(2) : "",
         teacher_note: "",
       };
     }
@@ -541,7 +541,7 @@ export default function GroupDetail() {
                                 onChange={(e) =>
                                   handleValidationChange(rs.student_id, field, e.target.value)
                                 }
-                                helperText={`Sistema: ${(rs as unknown as Record<string, number>)[field]?.toFixed(1) ?? "—"}`}
+                                helperText={`Sistema: ${(rs as unknown as Record<string, number>)[field]?.toFixed(2) ?? "—"}`}
                                 fullWidth
                               />
                             </Grid>

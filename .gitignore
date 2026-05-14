@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# Environments
+.env
+.env.local
+.env.production
+infrastructure/.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+frontend/dist/
+
+# Project specific
+videos/
+*.zip
+*.docx
+*.pptx
+back/
+
+# Documentation - personal notes
+*.md
+!README.md
+!AGENTS.md
+
+# Docker
+infrastructure/ssl/

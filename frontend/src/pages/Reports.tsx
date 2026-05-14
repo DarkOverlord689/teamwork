@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useDispatch } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import {
   Container,
   Typography,
@@ -13,6 +14,7 @@ import {
   Alert,
 } from "@mui/material";
 import DownloadIcon from "@mui/icons-material/Download";
+import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 
 import { showSnackbar } from "../store/slices/uiSlice";
 import { reportService, groupService } from "../services/api";
@@ -35,6 +37,7 @@ const STATUS_COLORS: Record<string, "success" | "warning" | "default" | "error">
 
 export default function Reports() {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
@@ -148,7 +151,7 @@ export default function Reports() {
                     </Typography>
                   )}
                 </CardContent>
-                <Box sx={{ px: 2, pb: 2, display: "flex", gap: 1 }}>
+                <Box sx={{ px: 2, pb: 2, display: "flex", gap: 1, flexWrap: "wrap" }}>
                   <Button
                     size="small"
                     variant="contained"
@@ -167,6 +170,15 @@ export default function Reports() {
                     onClick={() => handleDownload(report.id, "json")}
                   >
                     JSON
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    color="secondary"
+                    startIcon={<OpenInNewIcon />}
+                    onClick={() => navigate(`/groups/${report.group_id}`)}
+                  >
+                    Ver análisis
                   </Button>
                 </Box>
               </Card>
