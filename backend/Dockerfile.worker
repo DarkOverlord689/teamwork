@@ -1,28 +1,16 @@
-FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
+FROM python:3.11-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y \
-    python3.11 \
-    python3.11-dev \
-    python3-pip \
     build-essential \
     libsndfile1 \
     ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
-# Make python3.11 the default python/pip
-RUN ln -sf /usr/bin/python3.11 /usr/bin/python && \
-    ln -sf /usr/bin/python3.11 /usr/bin/python3 && \
-    ln -sf /usr/bin/pip3 /usr/bin/pip
-
 WORKDIR /app
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir \
-    torch==2.1.2+cu121 \
-    torchaudio==2.1.2+cu121 \
-    --extra-index-url https://download.pytorch.org/whl/cu121
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .

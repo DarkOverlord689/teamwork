@@ -91,20 +91,12 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - UPLOAD_TMP_DIR=/shared/uploads
       - FRAMES_DIR=/shared/uploads/frames
-      - NVIDIA_VISIBLE_DEVICES=all
       - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY}
       - DEEPGRAM_MODEL=${DEEPGRAM_MODEL:-nova-2}
     volumes:
       - ../backend:/app
       - models-cache:/models
       - shared-uploads:/shared/uploads
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
 
   postgres:
     image: postgres:16-alpine
