@@ -1,20 +1,20 @@
+/* Layout.tsx - Estructura general de la aplicación
+ *
+ * Este componente define la estructura visual de toda la app:
+ * - Barra superior (AppBar) con el logo SMATC-UPAO
+ * - Menú lateral (Drawer) con enlaces a las páginas principales
+ * - Área principal donde se renderiza el contenido de cada página
+ * - Snackbar para mostrar mensajes al usuario
+ *
+ * El menú lateral se puede abrir/cerrar con el botón de menú (hamburguesa).
+ */
+
 import { ReactNode } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
-  AppBar,
-  Box,
-  Drawer,
-  IconButton,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
-  Toolbar,
-  Typography,
-  Snackbar,
-  Alert,
+  AppBar, Box, Drawer, IconButton, List, ListItem, ListItemButton,
+  ListItemIcon, ListItemText, Toolbar, Typography, Snackbar, Alert,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import DashboardIcon from "@mui/icons-material/Dashboard";
@@ -37,6 +37,7 @@ export default function Layout({ children }: LayoutProps) {
   const { sidebarOpen } = useSelector((state: RootState) => state.ui);
   const { snackbar } = useSelector((state: RootState) => state.ui);
 
+  /* Opciones del menú lateral: texto, ícono y ruta de navegación */
   const menuItems = [
     { text: "Dashboard", icon: <DashboardIcon />, path: "/" },
     { text: "Subir Video", icon: <CloudUploadIcon />, path: "/upload" },
@@ -45,6 +46,7 @@ export default function Layout({ children }: LayoutProps) {
 
   return (
     <Box sx={{ display: "flex" }}>
+      {/* Barra superior fija */}
       <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
         <Toolbar>
           <IconButton
@@ -61,16 +63,14 @@ export default function Layout({ children }: LayoutProps) {
         </Toolbar>
       </AppBar>
 
+      {/* Menú lateral deslizable */}
       <Drawer
         variant="persistent"
         open={sidebarOpen}
         sx={{
           width: sidebarOpen ? drawerWidth : 0,
           flexShrink: 0,
-          "& .MuiDrawer-paper": {
-            width: drawerWidth,
-            boxSizing: "border-box",
-          },
+          "& .MuiDrawer-paper": { width: drawerWidth, boxSizing: "border-box" },
         }}
       >
         <Toolbar />
@@ -91,12 +91,11 @@ export default function Layout({ children }: LayoutProps) {
         </Box>
       </Drawer>
 
+      {/* Área principal de contenido */}
       <Box
         component="main"
         sx={{
-          flexGrow: 1,
-          p: 3,
-          mt: 8,
+          flexGrow: 1, p: 3, mt: 8,
           ml: sidebarOpen ? 0 : `-${drawerWidth}px`,
           transition: "margin 225ms",
         }}
@@ -104,6 +103,7 @@ export default function Layout({ children }: LayoutProps) {
         {children}
       </Box>
 
+      {/* Snackbar para mensajes temporales al usuario */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={6000}

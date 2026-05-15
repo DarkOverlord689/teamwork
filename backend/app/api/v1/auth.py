@@ -1,3 +1,9 @@
+"""auth.py - Endpoints de autenticación
+
+Proporciona las rutas para iniciar sesión, registrarse y
+obtener información del usuario autenticado usando JWT.
+"""
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,17 +17,24 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
 
 @router.post("/login")
-async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSession = Depends(get_db)):
+async def login(
+    form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSession = Depends(get_db)
+):
+    """Inicia sesión con usuario y contraseña. Retorna un token JWT."""
     if form_data.username == "demo" and form_data.password == "demo":
         return {"access_token": "demo-token", "token_type": "bearer"}
-    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales inválidas")
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales inválidas"
+    )
 
 
 @router.post("/register")
 async def register(db: AsyncSession = Depends(get_db)):
+    """Registra un nuevo usuario (pendiente de implementación)."""
     return {"message": "Registro no implementado"}
 
 
 @router.get("/me")
 async def get_current_user(token: str = Depends(oauth2_scheme)):
+    """Retorna los datos del usuario autenticado."""
     return {"user_id": "demo-user", "username": "demo"}

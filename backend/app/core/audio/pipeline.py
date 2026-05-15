@@ -1,8 +1,8 @@
-"""Audio pipeline orchestrator.
+"""Pipeline de audio.
 
-``AudioPipeline`` manages the full lifecycle of audio analysis: extraction,
-diarization, transcription, turn analysis, interruption detection, and
-participation aggregation.
+AudioPipeline gestiona el ciclo completo del análisis de audio:
+extracción, diarización, transcripción, análisis de turnos,
+detección de interrupciones y agregación de participación.
 """
 
 from __future__ import annotations
@@ -25,42 +25,30 @@ logger = logging.getLogger(__name__)
 
 
 class AudioPipeline:
-    """Full audio analysis pipeline.
-
-    Use as a context manager to handle automatic model loading and unloading:
-
-    .. code-block:: python
-
-        with AudioPipeline(config) as pipeline:
-            result = pipeline.process_audio(video_path)
-
-    Parameters
-    ----------
-    config : AudioConfig, optional
-        Pipeline-wide configuration.  Defaults to ``AudioConfig()`` when not
-        provided.
-    """
-
     def __init__(self, config: AudioConfig | None = None) -> None:
         self.config = config or AudioConfig()
 
         self._extractor = AudioExtractor(self.config)
-        self._diarizer = Diarizer(self.config) if self.config.enable_diarization else None
-        self._transcriber = Transcriber(self.config) if self.config.enable_transcription else None
+        self._diarizer = (
+            Diarizer(self.config) if self.config.enable_diarization else None
+        )
+        self._transcriber = (
+            Transcriber(self.config) if self.config.enable_transcription else None
+        )
         self._turn_analyzer = TurnAnalyzer(self.config)
         self._interruption_detector = (
-            InterruptionDetector(self.config) if self.config.enable_interruption else None
+            InterruptionDetector(self.config)
+            if self.config.enable_interruption
+            else None
         )
         self._aggregator = (
-            ParticipationAggregator(self.config) if self.config.enable_participation else None
+            ParticipationAggregator(self.config)
+            if self.config.enable_participation
+            else None
         )
 
-    # ------------------------------------------------------------------
-    # Lifecycle
-    # ------------------------------------------------------------------
-
     def load_all(self) -> None:
-        """Load all ML models into memory."""
+        """Carga todos los modelos de ML en memoria."""
         logger.info("Loading audio pipeline processors...")
         self._extractor.load()
         if self._diarizer is not None:
@@ -70,7 +58,7 @@ class AudioPipeline:
         logger.info("Audio pipeline processors loaded.")
 
     def unload_all(self) -> None:
-        """Release all model resources."""
+        """Libera los recursos de los modelos."""
         logger.info("Unloading audio pipeline processors...")
         self._extractor.unload()
         if self._diarizer is not None:
@@ -79,10 +67,6 @@ class AudioPipeline:
             self._transcriber.unload()
         logger.info("Audio pipeline processors unloaded.")
 
-    # ------------------------------------------------------------------
-    # Context manager
-    # ------------------------------------------------------------------
-
     def __enter__(self) -> "AudioPipeline":
         self.load_all()
         return self
@@ -90,79 +74,44 @@ class AudioPipeline:
     def __exit__(self, *args: object) -> None:
         self.unload_all()
 
-    # ------------------------------------------------------------------
-    # Main processing
-    # ------------------------------------------------------------------
-
     def process_audio(
         self,
         video_path: str,
         progress_callback: Callable[[float, str], None] | None = None,
     ) -> AudioResult:
-        """Run the full pipeline on *video_path* and return an ``AudioResult``.
-
-        Parameters
-        ----------
-        video_path : str
-            Path to the video (or audio) file on disk.
-        progress_callback : callable, optional
-            Called with ``(fraction: float, message: str)`` as each stage
-            completes.  ``fraction`` increases monotonically from 0.0 to 1.0.
-
-        Returns
-        -------
-        AudioResult
-        """
+        """Ejecuta el pipeline completo en el video y retorna un AudioResult."""
         start_time = time.time()
 
         def _progress(p: float, msg: str) -> None:
             if progress_callback is not None:
                 progress_callback(p, msg)
 
-        # ------------------------------------------------------------------
-        # Step 1 — Audio extraction
-        # ------------------------------------------------------------------
         _progress(0.0, "Starting audio extraction")
         waveform, sample_rate, duration = self._extractor.process(video_path)
         temp_wav_path = self._extractor.write_temp_wav(waveform, sample_rate)
         _progress(0.10, "Audio extracted")
 
-        # ------------------------------------------------------------------
-        # Step 2 — Speaker diarization
-        # ------------------------------------------------------------------
         segments: list[SpeakerSegment] = []
         if self._diarizer is not None:
             _progress(0.15, "Starting diarization")
             segments = self._diarizer.process(temp_wav_path)
             _progress(0.40, "Diarization complete")
 
-        # Release diarizer model to free RAM before transcription.
-        # Transcription now uses the OpenAI API (no local model weights),
-        # so this is a simple cleanup step rather than an OOM-prevention measure.
         import gc
 
         if self._diarizer is not None:
             self._diarizer.unload()
         gc.collect()
 
-        # ------------------------------------------------------------------
-        # Step 3 — Transcription
-        # ------------------------------------------------------------------
         transcripts: list[TranscriptSegment] = []
         if self._transcriber is not None and segments:
             _progress(0.45, "Starting transcription")
             transcripts = self._transcriber.process(waveform, segments)
             _progress(0.75, "Transcription complete")
 
-        # ------------------------------------------------------------------
-        # Step 4 — Turn analysis
-        # ------------------------------------------------------------------
         _progress(0.80, "Analyzing turns")
         turn_result = self._turn_analyzer.process(segments, total_duration=duration)
 
-        # ------------------------------------------------------------------
-        # Step 5 — Interruption detection
-        # ------------------------------------------------------------------
         interruptions = []
         if self._interruption_detector is not None:
             _progress(0.85, "Detecting interruptions")
@@ -172,9 +121,6 @@ class AudioPipeline:
                 turn_result.overlaps,
             )
 
-        # ------------------------------------------------------------------
-        # Step 6 — Participation aggregation
-        # ------------------------------------------------------------------
         session_metrics = None
         if self._aggregator is not None:
             _progress(0.90, "Aggregating metrics")
@@ -185,9 +131,6 @@ class AudioPipeline:
                 duration,
             )
 
-        # ------------------------------------------------------------------
-        # Cleanup temp WAV
-        # ------------------------------------------------------------------
         try:
             os.unlink(temp_wav_path)
         except Exception:

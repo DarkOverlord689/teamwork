@@ -1,7 +1,8 @@
-"""Vision processing API endpoints.
+"""vision.py - Endpoints del pipeline de procesamiento de video
 
-Provides REST endpoints to start vision analysis on uploaded videos,
-check processing status, and retrieve results.
+Proporciona rutas REST para iniciar el análisis de video,
+consultar el estado del procesamiento y obtener los resultados.
+También sirve las miniaturas de los frames guardados.
 """
 
 from __future__ import annotations
@@ -28,38 +29,26 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-# ---------------------------------------------------------------------------
-# Request schemas
-# ---------------------------------------------------------------------------
-
 class StartVisionRequest(BaseModel):
-    """Request body for starting vision processing."""
-    session_id: UUID = Field(..., description="ID of the analysis session to process")
+    """Solicitud para iniciar el procesamiento de video."""
+
+    session_id: UUID = Field(..., description="ID de la sesión de análisis a procesar")
     config_overrides: Optional[dict] = Field(
-        None, description="Optional VisionConfig overrides (e.g. fps, enable_emotion)"
+        None, description="Opciones de configuración opcionales"
     )
 
-
-# ---------------------------------------------------------------------------
-# Endpoints
-# ---------------------------------------------------------------------------
 
 @router.post(
     "/process",
     response_model=VisionProcessingResponse,
     status_code=status.HTTP_202_ACCEPTED,
-    summary="Start vision analysis",
+    summary="Iniciar análisis de video",
 )
 async def start_vision_processing(
     request: StartVisionRequest,
     db: AsyncSession = Depends(get_db),
 ):
-    """Enqueue a vision processing task for the given analysis session.
-
-    The session must already exist and have a valid ``video_path``.
-    Returns immediately with a task ID that can be used to poll status.
-    """
-    # Look up the session to get the video path
+    """Encola una tarea de procesamiento de video para la sesión indicada."""
     stmt = select(AnalysisSession).where(AnalysisSession.id == request.session_id)
     result = await db.execute(stmt)
     session = result.scalar_one_or_none()
@@ -67,13 +56,13 @@ async def start_vision_processing(
     if session is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Analysis session {request.session_id} not found",
+            detail=f"Sesión {request.session_id} no encontrada",
         )
 
     if not session.video_path:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Session has no video_path set",
+            detail="La sesión no tiene video_path",
         )
 
     service = VisionService(db)
@@ -84,70 +73,50 @@ async def start_vision_processing(
             config=request.config_overrides,
         )
     except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(exc),
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
 
     return VisionProcessingResponse(
-        session_id=request.session_id,
-        task_id=task_id,
-        status="queued",
+        session_id=request.session_id, task_id=task_id, status="queued"
     )
 
 
 @router.get(
     "/status/{session_id}",
     response_model=VisionStatusResponse,
-    summary="Check vision analysis status",
+    summary="Estado del análisis de video",
 )
 async def get_vision_status(
     session_id: UUID,
     db: AsyncSession = Depends(get_db),
 ):
-    """Return the current status of a vision processing task."""
+    """Retorna el estado actual del procesamiento de video."""
     service = VisionService(db)
     try:
         status_info = await service.get_analysis_status(session_id)
     except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(exc),
-        )
-
-    # Try to get Celery task status for richer info
-    task_id = ""
-    celery_status = status_info["status"]
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
 
     return VisionStatusResponse(
-        session_id=session_id,
-        task_id=task_id,
-        status=celery_status,
+        session_id=session_id, task_id="", status=status_info["status"]
     )
 
 
-@router.get(
-    "/results/{session_id}",
-    summary="Get vision analysis results",
-)
+@router.get("/results/{session_id}", summary="Obtener resultados del análisis de video")
 async def get_vision_results(
     session_id: UUID,
     db: AsyncSession = Depends(get_db),
 ):
-    """Return the full vision analysis results for a completed session."""
+    """Retorna los resultados completos del análisis de video."""
     service = VisionService(db)
     try:
         results = await service.get_analysis_results(session_id)
     except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(exc),
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
 
     if results.get("session_metrics") is None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Vision results are not yet available (status: {results.get('status')})",
+            detail="Resultados de visión no disponibles aún",
         )
 
     return results
@@ -155,25 +124,22 @@ async def get_vision_results(
 
 @router.get(
     "/frames/{session_id}/{filename}",
-    summary="Serve a saved frame thumbnail",
+    summary="Servir miniatura de frame",
     response_class=FileResponse,
 )
 async def get_frame_thumbnail(
     session_id: UUID,
     filename: str,
 ):
-    """Return a saved JPEG thumbnail for the given session and filename.
+    """Retorna una miniatura JPEG guardada para la sesión y archivo indicados.
 
-    Files are written by the vision pipeline to
-    ``{FRAMES_DIR}/{session_id}/{filename}`` during processing.
-    Only ``.jpg`` / ``.jpeg`` files are served to prevent path traversal.
+    Solo se sirven archivos .jpg/.jpeg para prevenir path traversal.
     """
-    # Reject filenames that are not plain JPEGs (prevent path traversal)
-    safe_name = Path(filename).name  # strips any directory components
+    safe_name = Path(filename).name
     if not safe_name.lower().endswith((".jpg", ".jpeg")):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Only JPEG thumbnails are served via this endpoint",
+            detail="Solo se sirven miniaturas JPEG",
         )
 
     frame_path = Path(settings.frames_dir) / str(session_id) / safe_name
@@ -181,11 +147,9 @@ async def get_frame_thumbnail(
     if not frame_path.exists() or not frame_path.is_file():
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Frame thumbnail not found: {safe_name}",
+            detail=f"Miniatura no encontrada: {safe_name}",
         )
 
     return FileResponse(
-        path=str(frame_path),
-        media_type="image/jpeg",
-        filename=safe_name,
+        path=str(frame_path), media_type="image/jpeg", filename=safe_name
     )

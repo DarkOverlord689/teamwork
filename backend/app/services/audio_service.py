@@ -1,7 +1,8 @@
-"""Audio processing service layer.
+"""audio_service.py - Capa de servicio para el procesamiento de audio
 
-Provides a high-level API for starting, monitoring, and retrieving
-audio analysis results.  All database operations are async.
+Proporciona una API de alto nivel para iniciar, monitorear y recuperar
+los resultados del análisis de audio. Todas las operaciones de base de
+datos son asíncronas.
 """
 
 from __future__ import annotations
@@ -21,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 class AudioService:
-    """Manage audio analysis lifecycle via Celery + database."""
+    """Gestiona el ciclo de vida del análisis de audio vía Celery + BD."""
 
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
@@ -31,20 +32,7 @@ class AudioService:
         session_id: UUID,
         config: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        """Dispatch an audio processing task to Celery.
-
-        Parameters
-        ----------
-        session_id : UUID
-            Primary key of the ``AnalysisSession`` to process.
-        config : dict, optional
-            AudioConfig override values.
-
-        Returns
-        -------
-        dict
-            ``{"session_id", "task_id", "status"}``.
-        """
+        """Despacha una tarea de procesamiento de audio a Celery."""
         stmt = select(AnalysisSession).where(AnalysisSession.id == session_id)
         result = await self.db.execute(stmt)
         session = result.scalar_one_or_none()
@@ -52,19 +40,18 @@ class AudioService:
         if session is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"AnalysisSession {session_id} not found",
+                detail=f"Sesión {session_id} no encontrada",
             )
 
         if not session.video_path:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Session has no video_path set",
+                detail="La sesión no tiene video_path",
             )
 
         session.status = "queued"
         await self.db.commit()
 
-        # Dispatch Celery task
         task = process_audio_task.delay(
             video_path=session.video_path,
             session_id=str(session_id),
@@ -72,24 +59,12 @@ class AudioService:
         )
 
         logger.info(
-            "Audio analysis dispatched: session=%s, task=%s",
-            session_id,
-            task.id,
+            "Análisis de audio despachado: sesión=%s, tarea=%s", session_id, task.id
         )
-        return {
-            "session_id": str(session_id),
-            "task_id": task.id,
-            "status": "queued",
-        }
+        return {"session_id": str(session_id), "task_id": task.id, "status": "queued"}
 
     async def get_analysis_status(self, session_id: UUID) -> Dict[str, Any]:
-        """Return the current status of an audio analysis.
-
-        Returns
-        -------
-        dict
-            ``{"session_id", "task_id", "status", "progress", "error"}``.
-        """
+        """Retorna el estado actual del análisis de audio."""
         stmt = select(AnalysisSession).where(AnalysisSession.id == session_id)
         result = await self.db.execute(stmt)
         session = result.scalar_one_or_none()
@@ -97,7 +72,7 @@ class AudioService:
         if session is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"AnalysisSession {session_id} not found",
+                detail=f"Sesión {session_id} no encontrada",
             )
 
         return {
@@ -109,15 +84,9 @@ class AudioService:
         }
 
     async def get_analysis_results(self, session_id: UUID) -> Dict[str, Any]:
-        """Retrieve the full audio analysis results.
+        """Recupera los resultados completos del análisis de audio.
 
-        Results are stored as JSON in ``AnalysisSession.result_data``.
-        Raises 404 if audio results are not yet available.
-
-        Returns
-        -------
-        dict
-            The serialised ``AudioResult`` dict stored at task completion.
+        Los resultados se guardan como JSON en AnalysisSession.result_data.
         """
         stmt = select(AnalysisSession).where(AnalysisSession.id == session_id)
         result = await self.db.execute(stmt)
@@ -126,33 +95,20 @@ class AudioService:
         if session is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"AnalysisSession {session_id} not found",
+                detail=f"Sesión {session_id} no encontrada",
             )
 
         result_data = getattr(session, "result_data", None)
         audio_data = result_data.get("audio") if result_data else None
         if not audio_data and not (result_data and "segments" in result_data):
-            # No audio results yet (task still running, crashed, or never started).
-            # Use 404 rather than 409: there is no conflict, the resource simply
-            # does not exist yet.  409 was misleading and caused the UI to treat a
-            # crashed worker as a permanent error.
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Audio results are not yet available (status: {session.status})",
+                detail=f"Resultados de audio no disponibles (estado: {session.status})",
             )
 
-        # result_data is a namespaced dict: {"audio": {...}, "vision": {...}, "fusion": {...}}.
-        # Fall back to the raw dict for backwards-compatibility with older records that
-        # stored audio fields at the top level.
         return result_data.get("audio", result_data)
 
     async def get_transcripts(self, session_id: UUID) -> List[Dict[str, Any]]:
-        """Get just the transcript segments for a session.
-
-        Returns
-        -------
-        list[dict]
-            List of transcript segment dicts from the stored result_data.
-        """
+        """Obtiene solo los segmentos de transcripción de una sesión."""
         results = await self.get_analysis_results(session_id)
         return results.get("transcripts", [])

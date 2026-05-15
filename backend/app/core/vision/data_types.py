@@ -1,8 +1,8 @@
-"""Data classes for the vision processing pipeline.
+"""Clases de datos para el pipeline de procesamiento de visión.
 
-These dataclasses define the structured output at every level of the pipeline:
-per-face per-frame data (PersonFrame), per-frame aggregation (FrameResult),
-and full-video results (VisionResult).
+Estas clases definen la estructura de salida en cada nivel del pipeline:
+datos por rostro por frame (PersonFrame), agregación por frame (FrameResult),
+y resultados completos del video (VisionResult).
 """
 
 from __future__ import annotations
@@ -16,12 +16,9 @@ import numpy as np
 from app.core.audio.data_types import MomentType
 
 
-# ---------------------------------------------------------------------------
-# Enums
-# ---------------------------------------------------------------------------
-
 class GazeCategory(str, Enum):
-    """Discrete gaze direction classification."""
+    """Clasificación de dirección de mirada."""
+
     CAMERA = "camera"
     SCREEN = "screen"
     PEER = "peer"
@@ -30,24 +27,22 @@ class GazeCategory(str, Enum):
 
 
 class GestureType(str, Enum):
-    """Recognised head/facial gesture types."""
+    """Tipos de gestos reconocidos de cabeza/rostro."""
+
     NOD = "nod"
     SHAKE = "shake"
     FROWN = "frown"
     NEUTRAL = "neutral"
 
 
-# ---------------------------------------------------------------------------
-# Per-attribute data
-# ---------------------------------------------------------------------------
-
 @dataclass
 class GazeData:
-    """Gaze estimation result for a single face in a single frame."""
-    direction: Tuple[float, float, float]  # yaw, pitch, roll (degrees)
+    """Resultado de estimación de mirada para un rostro en un frame."""
+
+    direction: Tuple[float, float, float]
     is_looking_at_camera: bool
     confidence: float
-    category: str  # one of GazeCategory values
+    category: str
 
     def to_dict(self) -> dict:
         return {
@@ -60,10 +55,11 @@ class GazeData:
 
 @dataclass
 class GestureData:
-    """Gesture detection result for a single face in a single frame."""
-    gesture_type: str  # one of GestureType values
+    """Resultado de detección de gesto para un rostro en un frame."""
+
+    gesture_type: str
     confidence: float
-    intensity: float  # 0.0 to 1.0
+    intensity: float
 
     def to_dict(self) -> dict:
         return {
@@ -75,8 +71,9 @@ class GestureData:
 
 @dataclass
 class PoseData:
-    """Body pose estimation result for a single person in a single frame."""
-    body_orientation: float  # degrees, 0 = facing camera
+    """Resultado de estimación de postura corporal para una persona en un frame."""
+
+    body_orientation: float
     shoulder_angle: float
     confidence: float
 
@@ -90,10 +87,11 @@ class PoseData:
 
 @dataclass
 class EmotionData:
-    """Emotion classification result for a single face in a single frame."""
+    """Resultado de clasificación de emoción para un rostro en un frame."""
+
     primary_emotion: str
     confidence: float
-    all_emotions: Dict[str, float]  # emotion label -> probability
+    all_emotions: Dict[str, float]
 
     def to_dict(self) -> dict:
         return {
@@ -103,16 +101,13 @@ class EmotionData:
         }
 
 
-# ---------------------------------------------------------------------------
-# Per-person, per-frame composite
-# ---------------------------------------------------------------------------
-
 @dataclass
 class PersonFrame:
-    """All vision data for one person in one frame."""
+    """Todos los datos de visión para una persona en un frame."""
+
     person_id: str
-    bbox: Tuple[int, int, int, int]  # x, y, w, h
-    landmarks: Optional[np.ndarray] = None  # 468x3 face landmarks
+    bbox: Tuple[int, int, int, int]
+    landmarks: Optional[np.ndarray] = None
     gaze: Optional[GazeData] = None
     gesture: Optional[GestureData] = None
     pose: Optional[PoseData] = None
@@ -139,15 +134,12 @@ class PersonFrame:
         return result
 
 
-# ---------------------------------------------------------------------------
-# Per-frame aggregate
-# ---------------------------------------------------------------------------
-
 @dataclass
 class FrameResult:
-    """All results for one sampled frame."""
+    """Todos los resultados para un frame muestreado."""
+
     frame_number: int
-    timestamp: float  # seconds from start of video
+    timestamp: float
     persons: List[PersonFrame] = field(default_factory=list)
 
     def to_dict(self) -> dict:
@@ -158,21 +150,18 @@ class FrameResult:
         }
 
 
-# ---------------------------------------------------------------------------
-# Per-person aggregation metrics (computed after all frames)
-# ---------------------------------------------------------------------------
-
 @dataclass
 class PersonMetrics:
-    """Aggregated metrics for one tracked person across the entire session."""
+    """Métricas agregadas para una persona seguida durante toda la sesión."""
+
     person_id: str
     total_frames_seen: int
-    gaze_contact_percentage: float  # 0.0 - 100.0
+    gaze_contact_percentage: float
     dominant_emotion: str
-    emotion_distribution: Dict[str, float]  # emotion label -> proportion
-    average_body_orientation: float  # degrees
-    gesture_counts: Dict[str, int]  # gesture_type -> count
-    attention_score: float  # 0.0 - 1.0 weighted composite
+    emotion_distribution: Dict[str, float]
+    average_body_orientation: float
+    gesture_counts: Dict[str, int]
+    attention_score: float
 
     def to_dict(self) -> dict:
         return {
@@ -189,10 +178,11 @@ class PersonMetrics:
 
 @dataclass
 class SessionMetrics:
-    """Aggregated metrics for the entire video analysis session."""
+    """Métricas agregadas para toda la sesión de análisis de video."""
+
     total_persons: int
     total_frames: int
-    duration: float  # seconds
+    duration: float
     per_person_metrics: List[PersonMetrics] = field(default_factory=list)
 
     def to_dict(self) -> dict:
@@ -204,13 +194,9 @@ class SessionMetrics:
         }
 
 
-# ---------------------------------------------------------------------------
-# Multimodal frame analysis (smart frame selection)
-# ---------------------------------------------------------------------------
-
 @dataclass
 class MultimodalFrameAnalysis:
-    """Result of multimodal analysis for a single key frame."""
+    """Resultado del análisis multimodal para un frame clave."""
 
     frame_number: int
     timestamp_ms: float
@@ -226,19 +212,20 @@ class MultimodalFrameAnalysis:
     fallback_model: str | None
     fallback_reason: str | None
     image_url: str | None = None
-    # Convenience field: timestamp in seconds (timestamp_ms / 1000.0).
-    # Set explicitly so that API consumers can use either field.
     timestamp: float | None = None
 
     def to_dict(self) -> dict:
         return {
             "frame_number": self.frame_number,
             "timestamp_ms": self.timestamp_ms,
-            # Emit timestamp in seconds for consumers that use the short form.
-            "timestamp": self.timestamp if self.timestamp is not None else self.timestamp_ms / 1000.0,
+            "timestamp": self.timestamp
+            if self.timestamp is not None
+            else self.timestamp_ms / 1000.0,
             "speaker_id": self.speaker_id,
             "person_id": self.person_id,
-            "moment_type": self.moment_type.value if self.moment_type is not None else None,
+            "moment_type": self.moment_type.value
+            if self.moment_type is not None
+            else None,
             "multimodal_description": self.multimodal_description,
             "emotion_primary": self.emotion_primary,
             "emotion_confidence": self.emotion_confidence,
@@ -253,7 +240,7 @@ class MultimodalFrameAnalysis:
 
 @dataclass
 class SpeakerFaceMapping:
-    """Mapping between a diarised speaker and a tracked face/person."""
+    """Mapeo entre un hablante diarizado y una cara/persona seguida."""
 
     speaker_id: str
     person_id: str | None
@@ -271,13 +258,10 @@ class SpeakerFaceMapping:
         }
 
 
-# ---------------------------------------------------------------------------
-# Full-video result
-# ---------------------------------------------------------------------------
-
 @dataclass
 class VisionResult:
-    """Complete output of the vision pipeline for one video."""
+    """Resultado completo del pipeline de visión para un video."""
+
     video_path: str
     total_frames: int
     fps_processed: float
@@ -286,20 +270,12 @@ class VisionResult:
     processing_time_seconds: float = 0.0
     person_embeddings: Dict[str, Any] = field(default_factory=dict)
     session_metrics: Optional[SessionMetrics] = None
-    # Smart frame selection fields
     smart_mode: bool = False
     key_moment_analyses: List["MultimodalFrameAnalysis"] = field(default_factory=list)
     speaker_face_mappings: List["SpeakerFaceMapping"] = field(default_factory=list)
-    # Frame thumbnails: mapping of timestamp (seconds) -> relative URL path
-    # e.g. {2.0: "/api/v1/vision/frames/{session_id}/frame_2.0.jpg"}
     frame_thumbnails: Dict[float, str] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
-        """Serialize to a JSON-compatible dict for Celery/API transport.
-
-        numpy arrays inside PersonFrame are converted to plain lists so the
-        result can be passed through ``json.dumps`` without a custom encoder.
-        """
         result = {
             "video_path": self.video_path,
             "total_frames": self.total_frames,
@@ -317,7 +293,11 @@ class VisionResult:
         if self.session_metrics is not None:
             result["session_metrics"] = self.session_metrics.to_dict()
         if self.key_moment_analyses:
-            result["key_moment_analyses"] = [a.to_dict() for a in self.key_moment_analyses]
+            result["key_moment_analyses"] = [
+                a.to_dict() for a in self.key_moment_analyses
+            ]
         if self.speaker_face_mappings:
-            result["speaker_face_mappings"] = [m.to_dict() for m in self.speaker_face_mappings]
+            result["speaker_face_mappings"] = [
+                m.to_dict() for m in self.speaker_face_mappings
+            ]
         return result

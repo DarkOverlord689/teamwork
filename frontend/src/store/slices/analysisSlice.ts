@@ -1,3 +1,12 @@
+/* analysisSlice.ts - Estado global del análisis
+ *
+ * Maneja el estado relacionado con los grupos y sesiones de análisis:
+ * - groups:          lista de grupos registrados
+ * - currentSession:  sesión de análisis seleccionada actualmente
+ * - loading:         indica si hay una operación en curso
+ * - error:           mensaje de error si ocurrió algún problema
+ */
+
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 
 interface Group {

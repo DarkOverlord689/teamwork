@@ -16,11 +16,6 @@ from app.schemas.analysis import AnalysisResponse
 router = APIRouter()
 
 
-# ---------------------------------------------------------------------------
-# Request schemas for topic/intervention updates
-# ---------------------------------------------------------------------------
-
-
 class TopicDescriptionRequest(BaseModel):
     topic_description: str | None = None
 
@@ -34,7 +29,9 @@ class InterventionSummariesRequest(BaseModel):
     interventions: List[InterventionSummaryEntry]
 
 
-@router.post("/groups", response_model=GroupResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/groups", response_model=GroupResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_group(group: GroupCreate, db: AsyncSession = Depends(get_db)):
     db_group = Group(
         course_id=group.course_id,
@@ -66,8 +63,6 @@ async def get_group_analysis(group_id: str, db: AsyncSession = Depends(get_db)):
         if isinstance(result_data.get("fusion"), dict):
             fusion_data = result_data["fusion"]
 
-        # Merge per-student intervention_summary from RubricScore (system evaluator)
-        # into group_metrics.per_student_metrics so the frontend receives them together.
         group_metrics = fusion_data.get("group_metrics")
         if group_metrics and isinstance(group_metrics.get("per_student_metrics"), list):
             rubric_result = await db.execute(
@@ -104,24 +99,23 @@ async def get_group_analysis(group_id: str, db: AsyncSession = Depends(get_db)):
     return responses
 
 
-# ---------------------------------------------------------------------------
-# PATCH /analysis/sessions/{session_id}/topic
-# ---------------------------------------------------------------------------
-
-
 @router.patch("/sessions/{session_id}/topic", response_model=AnalysisResponse)
 async def update_topic_description(
     session_id: str,
     payload: TopicDescriptionRequest,
     db: AsyncSession = Depends(get_db),
 ) -> AnalysisResponse:
-    """Set or update the topic description for a session (exposition theme)."""
+    """Establece o actualiza la descripción del tema para una sesión."""
     try:
         session_uuid = UUID(session_id)
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        )
 
-    result = await db.execute(select(AnalysisSession).where(AnalysisSession.id == session_uuid))
+    result = await db.execute(
+        select(AnalysisSession).where(AnalysisSession.id == session_uuid)
+    )
     session = result.scalar_one_or_none()
     if session is None:
         raise HTTPException(
@@ -152,28 +146,23 @@ async def update_topic_description(
     )
 
 
-# ---------------------------------------------------------------------------
-# PATCH /analysis/sessions/{session_id}/interventions
-# ---------------------------------------------------------------------------
-
-
 @router.patch("/sessions/{session_id}/interventions")
 async def update_intervention_summaries(
     session_id: str,
     payload: InterventionSummariesRequest,
     db: AsyncSession = Depends(get_db),
 ) -> Dict:
-    """Set or update per-student intervention summaries for a session.
-
-    Each entry targets the system RubricScore row for the given student.
-    If no system RubricScore row exists for a student, a new one is created.
-    """
+    """Establece o actualiza resúmenes de intervención por estudiante para una sesión."""
     try:
         session_uuid = UUID(session_id)
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        )
 
-    result = await db.execute(select(AnalysisSession).where(AnalysisSession.id == session_uuid))
+    result = await db.execute(
+        select(AnalysisSession).where(AnalysisSession.id == session_uuid)
+    )
     session = result.scalar_one_or_none()
     if session is None:
         raise HTTPException(

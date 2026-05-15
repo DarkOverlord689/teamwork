@@ -1,16 +1,31 @@
-import axios from "axios";
+/* api.ts - Servicios de comunicación con el backend
+ *
+ * Define los servicios para cada módulo del API:
+ * - authService:    autenticación de usuarios
+ * - groupService:   gestión de grupos (listar, crear, obtener análisis)
+ * - uploadService:  subida de videos y consulta de estado
+ * - reportService:  descarga de reportes PDF
+ * - metricsService: métricas de estudiantes
+ * - validationService: validación y corrección de rúbricas por el docente
+ * - teacherService: dashboard y comparativa de grupos
+ * - audioService:   resultados de transcripción y análisis de audio
+ * - visionService:  resultados del análisis de video
+ *
+ * Todas las llamadas usan axios con la URL base configurada por VITE_API_URL.
+ */
 
+import axios from "axios";
 import type { AudioResult, TranscriptSegment, VisionResult } from "../types/audit";
 
+/* URL base del API: usa variable de entorno o ruta por defecto */
 const API_BASE_URL = import.meta.env.VITE_API_URL || "/api/v1";
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  headers: {
-    "Content-Type": "application/json",
-  },
+  headers: { "Content-Type": "application/json" },
 });
 
+/* Interceptor que agrega el token JWT a cada petición */
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("access_token");
   if (token) {
@@ -19,6 +34,7 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+/* Servicio de autenticación: login con usuario y contraseña */
 export const authService = {
   login: async (username: string, password: string) => {
     const formData = new FormData();
@@ -31,6 +47,7 @@ export const authService = {
   },
 };
 
+/* Servicio de grupos: listar, crear y obtener análisis */
 export const groupService = {
   list: async () => {
     const response = await api.get("/analysis/groups");
@@ -46,6 +63,7 @@ export const groupService = {
   },
 };
 
+/* Servicio de subida de videos */
 export const uploadService = {
   uploadVideo: async (file: File, groupName?: string, groupId?: string) => {
     const formData = new FormData();
@@ -63,6 +81,7 @@ export const uploadService = {
   },
 };
 
+/* Servicio de reportes: obtener y descargar en PDF */
 export const reportService = {
   getReports: async (groupId: string) => {
     const response = await api.get(`/reports/${groupId}`);
@@ -74,10 +93,12 @@ export const reportService = {
       responseType: "blob",
     });
 
+    /* Extrae el nombre del archivo del header Content-Disposition */
     const contentDisposition: string = response.headers["content-disposition"] || "";
     const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
     const filename = filenameMatch ? filenameMatch[1] : `report.${format}`;
 
+    /* Crea un enlace temporal y dispara la descarga en el navegador */
     const url = window.URL.createObjectURL(new Blob([response.data]));
     const link = document.createElement("a");
     link.href = url;
@@ -89,6 +110,7 @@ export const reportService = {
   },
 };
 
+/* Servicio de métricas de estudiantes */
 export const metricsService = {
   getStudentMetrics: async (studentId: string) => {
     const response = await api.get(`/metrics/${studentId}`);
@@ -96,6 +118,7 @@ export const metricsService = {
   },
 };
 
+/* Datos que se envían al corregir una rúbrica */
 export interface ValidationPayload {
   student_id: string;
   rubric_corrections: {
@@ -108,6 +131,7 @@ export interface ValidationPayload {
   teacher_note: string;
 }
 
+/* Servicio de validación: obtener y enviar correcciones docentes */
 export const validationService = {
   getValidation: async (sessionId: string) => {
     const response = await api.get(`/validate/${sessionId}`);
@@ -119,7 +143,7 @@ export const validationService = {
   },
 };
 
-
+/* Servicio de docente: dashboard y comparativa de grupos */
 export const teacherService = {
   getDashboard: async () => {
     const response = await api.get("/teacher/dashboard");
@@ -131,6 +155,7 @@ export const teacherService = {
   },
 };
 
+/* Servicio de audio: transcripciones y resultados del análisis */
 export const audioService = {
   getTranscripts: (sessionId: string): Promise<TranscriptSegment[]> =>
     api.get(`/audio/results/${sessionId}/transcripts`).then((r) => r.data),
@@ -138,6 +163,7 @@ export const audioService = {
     api.get(`/audio/results/${sessionId}`).then((r) => r.data),
 };
 
+/* Servicio de visión: resultados del análisis de video */
 export const visionService = {
   getResults: (sessionId: string): Promise<VisionResult> =>
     api.get(`/vision/results/${sessionId}`).then((r) => r.data),

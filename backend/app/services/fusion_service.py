@@ -1,13 +1,14 @@
-"""Fusion processing service layer (Module 2.3).
+"""fusion_service.py - Capa de servicio para la fusión multimodal (Módulo 2.3)
 
-Provides a high-level API for starting, monitoring, and retrieving
-multimodal fusion analysis results.  All database operations are async.
+Proporciona una API de alto nivel para iniciar, monitorear y recuperar
+los resultados del análisis de fusión multimodal. Todas las operaciones
+de base de datos son asíncronas.
 """
 
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 from uuid import UUID
 
 from fastapi import HTTPException, status
@@ -21,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 class FusionService:
-    """Manage multimodal fusion analysis lifecycle via Celery + database."""
+    """Gestiona el ciclo de vida del análisis de fusión multimodal vía Celery + BD."""
 
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
@@ -31,23 +32,10 @@ class FusionService:
         session_id: UUID,
         config: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        """Dispatch a fusion processing task to Celery.
+        """Despacha una tarea de fusión multimodal a Celery.
 
-        Both the vision and audio analyses for the session must have already
-        been completed and their results stored in ``result_data`` on the
-        session row.
-
-        Parameters
-        ----------
-        session_id : UUID
-            Primary key of the ``AnalysisSession`` to process.
-        config : dict, optional
-            FusionConfig override values.
-
-        Returns
-        -------
-        dict
-            ``{"session_id", "task_id", "status"}``.
+        Los análisis de visión y audio deben haberse completado primero
+        y sus resultados deben estar almacenados en result_data.
         """
         stmt = select(AnalysisSession).where(AnalysisSession.id == session_id)
         result = await self.db.execute(stmt)
@@ -56,13 +44,13 @@ class FusionService:
         if session is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"AnalysisSession {session_id} not found",
+                detail=f"Sesión {session_id} no encontrada",
             )
 
         if not session.video_path:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Session has no video_path set",
+                detail="La sesión no tiene video_path",
             )
 
         session.status = "queued"
@@ -74,24 +62,12 @@ class FusionService:
         )
 
         logger.info(
-            "Fusion analysis dispatched: session=%s, task=%s",
-            session_id,
-            task.id,
+            "Fusión multimodal despachada: sesión=%s, tarea=%s", session_id, task.id
         )
-        return {
-            "session_id": str(session_id),
-            "task_id": task.id,
-            "status": "queued",
-        }
+        return {"session_id": str(session_id), "task_id": task.id, "status": "queued"}
 
     async def get_analysis_status(self, session_id: UUID) -> Dict[str, Any]:
-        """Return the current status of a fusion analysis.
-
-        Returns
-        -------
-        dict
-            ``{"session_id", "task_id", "status", "progress", "error"}``.
-        """
+        """Retorna el estado actual del análisis de fusión."""
         stmt = select(AnalysisSession).where(AnalysisSession.id == session_id)
         result = await self.db.execute(stmt)
         session = result.scalar_one_or_none()
@@ -99,7 +75,7 @@ class FusionService:
         if session is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"AnalysisSession {session_id} not found",
+                detail=f"Sesión {session_id} no encontrada",
             )
 
         return {
@@ -111,15 +87,10 @@ class FusionService:
         }
 
     async def get_analysis_results(self, session_id: UUID) -> Dict[str, Any]:
-        """Retrieve the full fusion analysis results.
+        """Recupera los resultados completos del análisis de fusión.
 
-        Results are stored as JSON in ``AnalysisSession.result_data`` under the
-        key ``"fusion"``.  Raises 409 if the analysis is not yet complete.
-
-        Returns
-        -------
-        dict
-            The serialised ``FusionResult`` dict stored at task completion.
+        Los resultados se guardan como JSON en AnalysisSession.result_data
+        bajo la clave 'fusion'.
         """
         stmt = select(AnalysisSession).where(AnalysisSession.id == session_id)
         result = await self.db.execute(stmt)
@@ -128,13 +99,13 @@ class FusionService:
         if session is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"AnalysisSession {session_id} not found",
+                detail=f"Sesión {session_id} no encontrada",
             )
 
         if session.status != "completed":
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=f"Analysis is not yet complete (status: {session.status})",
+                detail=f"Análisis no completado (estado: {session.status})",
             )
 
         result_data = getattr(session, "result_data", None) or {}
@@ -142,35 +113,23 @@ class FusionService:
         return fusion_data
 
     async def get_explanation(self, session_id: UUID) -> Dict[str, Any]:
-        """Get just the narrative explanation for a completed fusion session.
-
-        Returns
-        -------
-        dict
-            The ``explanation`` sub-dict from the stored FusionResult.
-        """
+        """Obtiene solo la explicación narrativa de una sesión de fusión completada."""
         results = await self.get_analysis_results(session_id)
         explanation = results.get("explanation")
         if explanation is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="No explanation found in fusion results",
+                detail="No se encontró explicación en los resultados de fusión",
             )
         return explanation
 
     async def get_rubric_scores(self, session_id: UUID) -> Dict[str, Any]:
-        """Get the UPAO rubric scores for a completed fusion session.
-
-        Returns
-        -------
-        dict
-            The ``rubric_scores`` sub-dict from the stored FusionResult.
-        """
+        """Obtiene los puntajes de rúbrica UPAO de una sesión de fusión completada."""
         results = await self.get_analysis_results(session_id)
         rubric = results.get("rubric_scores")
         if rubric is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="No rubric scores found in fusion results",
+                detail="No se encontraron puntajes de rúbrica en los resultados de fusión",
             )
         return rubric

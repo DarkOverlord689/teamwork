@@ -1,13 +1,3 @@
-"""Data classes for the audio processing pipeline.
-
-These dataclasses define the structured output at every level of the pipeline:
-per-word timestamps (WordTimestamp), speaker diarization segments
-(SpeakerSegment / SpeakerTurn), aligned transcripts (TranscriptSegment),
-detected interruptions (Interruption), per-speaker metrics (SpeakerMetrics),
-session-level aggregates (AudioSessionMetrics), and the full video result
-(AudioResult).
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -15,13 +5,8 @@ from enum import Enum
 from typing import List
 
 
-# ---------------------------------------------------------------------------
-# Enums
-# ---------------------------------------------------------------------------
-
-
 class SpeakerRole(str, Enum):
-    """Inferred participation role for a speaker across the session."""
+    """Rol de participación inferido para un hablante durante la sesión."""
 
     UNKNOWN = "unknown"
     LEADER = "leader"
@@ -30,7 +15,7 @@ class SpeakerRole(str, Enum):
 
 
 class InterruptionType(str, Enum):
-    """Semantic classification of a detected interruption event."""
+    """Clasificación semántica de un evento de interrupción detectado."""
 
     DISRUPTIVE = "disruptive"
     BACK_CHANNEL = "back_channel"
@@ -38,7 +23,7 @@ class InterruptionType(str, Enum):
 
 
 class MomentType(str, Enum):
-    """Type of key conversational moment for smart frame selection."""
+    """Tipo de momento clave para la selección inteligente de frames."""
 
     SPEECH_ONSET = "speech_onset"
     RECEIVING_QUESTION = "receiving_question"
@@ -49,25 +34,20 @@ class MomentType(str, Enum):
     BACK_CHANNEL = "back_channel"
 
 
-# ---------------------------------------------------------------------------
-# Low-level primitives
-# ---------------------------------------------------------------------------
-
-
 @dataclass
 class KeyMoment:
-    """A key conversational moment selected for frame capture."""
+    """Un momento clave de conversación seleccionado para capturar frames."""
 
     timestamp_ms: float
     speaker_id: str
     moment_type: MomentType
-    priority: int  # 1 = highest priority
+    priority: int
     context_text: str
 
 
 @dataclass
 class WordTimestamp:
-    """Timing and confidence for a single recognised word."""
+    """Tiempo y confianza para una sola palabra reconocida."""
 
     word: str
     start: float
@@ -83,14 +63,9 @@ class WordTimestamp:
         }
 
 
-# ---------------------------------------------------------------------------
-# Diarisation output
-# ---------------------------------------------------------------------------
-
-
 @dataclass
 class SpeakerSegment:
-    """A contiguous speech segment assigned to a single speaker by the diariser."""
+    """Un segmento de voz continuo asignado a un solo hablante."""
 
     start: float
     end: float
@@ -110,7 +85,7 @@ class SpeakerSegment:
 
 @dataclass
 class SpeakerTurn:
-    """A speaker turn — one or more consecutive segments by the same speaker."""
+    """Un turno de palabra - uno o más segmentos consecutivos del mismo hablante."""
 
     start: float
     end: float
@@ -128,14 +103,9 @@ class SpeakerTurn:
         }
 
 
-# ---------------------------------------------------------------------------
-# Transcription output
-# ---------------------------------------------------------------------------
-
-
 @dataclass
 class TranscriptSegment:
-    """Whisper transcript aligned to a diarised speaker segment."""
+    """Transcripción de Whisper alineada a un segmento de hablante."""
 
     start: float
     end: float
@@ -157,14 +127,9 @@ class TranscriptSegment:
         }
 
 
-# ---------------------------------------------------------------------------
-# Interruption detection
-# ---------------------------------------------------------------------------
-
-
 @dataclass
 class Interruption:
-    """A detected interruption event between two speakers."""
+    """Un evento de interrupción detectado entre dos hablantes."""
 
     time: float
     interrupter_id: str
@@ -182,14 +147,9 @@ class Interruption:
         }
 
 
-# ---------------------------------------------------------------------------
-# Per-speaker metrics
-# ---------------------------------------------------------------------------
-
-
 @dataclass
 class SpeakerMetrics:
-    """Aggregated participation metrics for one speaker across the session."""
+    """Métricas de participación agregadas para un hablante."""
 
     speaker_id: str
     speaking_time_seconds: float
@@ -213,20 +173,15 @@ class SpeakerMetrics:
         }
 
 
-# ---------------------------------------------------------------------------
-# Session-level aggregate metrics
-# ---------------------------------------------------------------------------
-
-
 @dataclass
 class AudioSessionMetrics:
-    """Aggregated metrics for the entire audio analysis session."""
+    """Métricas agregadas para toda la sesión de análisis de audio."""
 
     total_speakers: int
     duration: float
     total_speaking_time: float
     silence_ratio: float
-    participation_cv: float  # coefficient of variation — equity measure
+    participation_cv: float
     turn_alternation_rate: float
     per_speaker_metrics: List[SpeakerMetrics] = field(default_factory=list)
 
@@ -242,14 +197,9 @@ class AudioSessionMetrics:
         }
 
 
-# ---------------------------------------------------------------------------
-# Full-video result
-# ---------------------------------------------------------------------------
-
-
 @dataclass
 class AudioResult:
-    """Complete output of the audio pipeline for one video file."""
+    """Resultado completo del pipeline de audio para un archivo de video."""
 
     video_path: str
     duration_seconds: float
@@ -262,7 +212,6 @@ class AudioResult:
     session_metrics: AudioSessionMetrics | None = None
 
     def to_dict(self) -> dict:
-        """Serialize to a JSON-compatible dict for Celery/API transport."""
         result: dict = {
             "video_path": self.video_path,
             "duration_seconds": self.duration_seconds,

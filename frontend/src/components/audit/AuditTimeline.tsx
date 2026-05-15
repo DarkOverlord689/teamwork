@@ -1,3 +1,14 @@
+/* AuditTimeline.tsx - Línea de tiempo visual del análisis multimodal
+ *
+ * Muestra sincronizadamente los resultados de audio y video lado a lado:
+ * - Audio: carriles por cada hablante con sus turnos e interrupciones
+ * - Visión: carriles por cada persona detectada con sus ventanas de análisis
+ * - Regla de tiempo en la parte superior para referencia temporal
+ *
+ * Los datos se obtienen del store de Redux (transcriptAuditSlice)
+ * y se renderizan de forma responsiva usando ResizeObserver.
+ */
+
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { Alert, Box, Button, LinearProgress, Typography } from '@mui/material';
 import { useDispatch, useSelector } from 'react-redux';
@@ -9,6 +20,7 @@ import TimelineRuler from './TimelineRuler';
 import SpeakerLane from './SpeakerLane';
 import VisionLane from './VisionLane';
 
+/* Ancho reservado para la etiqueta del nombre del hablante */
 const LABEL_WIDTH = 80;
 
 export default function AuditTimeline({ sessionId }: { sessionId: string }) {
@@ -27,7 +39,7 @@ export default function AuditTimeline({ sessionId }: { sessionId: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(800);
 
-  // Fetch on mount if not already loaded
+  /* Carga los datos al montar el componente si no están ya cargados */
   useEffect(() => {
     if (!audioResult && !loadingAudio && !errorAudio) {
       dispatch(fetchAudioResult(sessionId));
@@ -37,7 +49,7 @@ export default function AuditTimeline({ sessionId }: { sessionId: string }) {
     }
   }, [sessionId]);
 
-  // ResizeObserver for responsive timeline width
+  /* Ajusta el ancho del timeline al tamaño del contenedor */
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -58,9 +70,9 @@ export default function AuditTimeline({ sessionId }: { sessionId: string }) {
     ? Math.max(1, (containerWidth - LABEL_WIDTH) / durationSeconds)
     : 10;
 
+  /* Agrupa los frames de visión en ventanas para reducir el renderizado */
   const visionWindows = useMemo(() => {
     if (!visionResult) return [];
-    // Use a larger window in smart mode (key moments are sparse) or for large frame counts
     const windowSize = visionResult.smart_mode ? 1.0 : ((visionResult.total_frames ?? 0) > 100_000 ? 2.0 : 0.5);
     return downsampleVisionFrames(
       visionResult.frames ?? [],
@@ -70,16 +82,15 @@ export default function AuditTimeline({ sessionId }: { sessionId: string }) {
     );
   }, [visionResult]);
 
+  /* IDs únicos de hablantes para crear los carriles de audio */
   const speakerIds = useMemo(() =>
     Array.from(new Set((audioResult?.turns ?? []).map(t => t.speaker_id))),
     [audioResult]
   );
 
+  /* IDs únicos de personas para crear los carriles de visión */
   const personIds = useMemo(() => {
     const fromMetrics = (visionResult?.session_metrics?.per_person_metrics ?? []).map(m => m.person_id);
-    // In smart mode, also include person IDs from key_moment_analyses (Qwen/CLIP results).
-    // Fall back to 'unknown' so that a lane is always rendered when key moments exist
-    // even when person_id and speaker_id are both null (e.g. pure CLIP fallback runs).
     const smartAnalyses = visionResult?.key_moment_analyses ?? [];
     const fromSmartAnalyses = smartAnalyses.length > 0
       ? smartAnalyses.map(a => a.person_id ?? a.speaker_id ?? 'unknown')
@@ -94,8 +105,10 @@ export default function AuditTimeline({ sessionId }: { sessionId: string }) {
 
   return (
     <Box ref={containerRef} sx={{ p: 2 }}>
+      {/* Barra de progreso mientras carga */}
       {(loadingAudio || loadingVision) && <LinearProgress sx={{ mb: 1 }} />}
 
+      {/* Alertas de error con botón de reintentar */}
       {errorAudio && (
         <Alert severity="error" sx={{ mb: 1 }}
           action={<Button size="small" onClick={() => dispatch(fetchAudioResult(sessionId))}>Reintentar</Button>}>
@@ -117,13 +130,13 @@ export default function AuditTimeline({ sessionId }: { sessionId: string }) {
 
       {durationSeconds > 0 && (
         <Box sx={{ overflowX: 'auto' }}>
-          {/* Ruler */}
+          {/* Regla de tiempo en la parte superior */}
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <Box sx={{ width: LABEL_WIDTH, flexShrink: 0 }} />
             <TimelineRuler durationSeconds={durationSeconds} pixelsPerSecond={pixelsPerSecond} />
           </Box>
 
-          {/* Audio section */}
+          {/* Sección de audio con carriles por hablante */}
           <Typography variant="overline" sx={{ display: 'block', mt: 1, mb: 0.5, color: 'text.secondary' }}>
             Audio
           </Typography>
@@ -153,7 +166,7 @@ export default function AuditTimeline({ sessionId }: { sessionId: string }) {
             </Box>
           ))}
 
-          {/* Vision section */}
+          {/* Sección de visión con carriles por persona */}
           <Typography variant="overline" sx={{ display: 'block', mt: 2, mb: 0.5, color: 'text.secondary' }}>
             Visión
           </Typography>

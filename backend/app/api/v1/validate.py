@@ -1,7 +1,11 @@
-"""Teacher validation API endpoints (Module 2.4).
+"""validate.py - Endpoints de validación docente (Módulo 2.4)
 
-Allows teachers to review system-generated rubric scores, submit corrections,
-and add a teacher note per student.
+Permite al docente revisar los puntajes de rúbrica generados por el sistema,
+enviar correcciones y agregar notas por estudiante.
+
+Las correcciones del docente se guardan en una fila separada
+(evaluator_type='teacher') sin modificar las puntuaciones originales del sistema,
+permitiendo la comparación entre ambas.
 """
 
 from __future__ import annotations
@@ -21,12 +25,9 @@ from app.models import AnalysisSession, RubricScore
 router = APIRouter()
 
 
-# ---------------------------------------------------------------------------
-# Request / response schemas
-# ---------------------------------------------------------------------------
-
-
 class RubricCorrections(BaseModel):
+    """Correcciones del docente para cada criterio de rúbrica (0-20)."""
+
     collaboration: float | None = Field(None, ge=0, le=20)
     communication: float | None = Field(None, ge=0, le=20)
     responsibility: float | None = Field(None, ge=0, le=20)
@@ -35,34 +36,30 @@ class RubricCorrections(BaseModel):
 
 
 class ValidationRequest(BaseModel):
+    """Solicitud de validación: ID del estudiante, correcciones y nota del docente."""
+
     student_id: str
     rubric_corrections: RubricCorrections
     teacher_note: str = ""
 
 
-# ---------------------------------------------------------------------------
-# POST /validate/{session_id}
-# ---------------------------------------------------------------------------
-
-
-@router.post("/{session_id}", summary="Submit teacher corrections for a session")
+@router.post("/{session_id}", summary="Enviar correcciones del docente para una sesión")
 async def submit_corrections(
     session_id: str,
     payload: ValidationRequest,
     db: AsyncSession = Depends(get_db),
 ) -> Dict[str, Any]:
-    """Save teacher rubric corrections as a new RubricScore row with evaluator_type='teacher'.
+    """Guarda las correcciones del docente como una nueva fila RubricScore.
 
-    Existing system-generated scores are NOT modified.  The teacher scores are
-    stored as a separate row so both can be compared later.
+    Las puntuaciones originales del sistema NO se modifican.
+    Las correcciones del docente se almacenan por separado.
     """
     try:
         session_uuid = UUID(session_id)
         student_uuid = UUID(payload.student_id)
     except ValueError as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=str(exc),
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
         )
 
     stmt = select(AnalysisSession).where(AnalysisSession.id == session_uuid)
@@ -72,17 +69,13 @@ async def submit_corrections(
     if session is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Analysis session {session_id} not found",
+            detail=f"Sesión {session_id} no encontrada",
         )
 
-    # Fetch existing system scores for this student to use as baseline
-    sys_stmt = (
-        select(RubricScore)
-        .where(
-            RubricScore.session_id == session_uuid,
-            RubricScore.student_id == student_uuid,
-            RubricScore.evaluator_type == "system",
-        )
+    sys_stmt = select(RubricScore).where(
+        RubricScore.session_id == session_uuid,
+        RubricScore.student_id == student_uuid,
+        RubricScore.evaluator_type == "system",
     )
     sys_result = await db.execute(sys_stmt)
     system_score: RubricScore | None = sys_result.scalar_one_or_none()
@@ -100,10 +93,21 @@ async def submit_corrections(
     communication = _resolve(corr.communication, "communication")
     responsibility = _resolve(corr.responsibility, "responsibility")
     leadership = _resolve(corr.leadership, "leadership")
-    technical_contribution = _resolve(corr.technical_contribution, "technical_contribution")
+    technical_contribution = _resolve(
+        corr.technical_contribution, "technical_contribution"
+    )
 
-    # Compute overall as mean of present scores
-    scores = [s for s in [collaboration, communication, responsibility, leadership, technical_contribution] if s is not None]
+    scores = [
+        s
+        for s in [
+            collaboration,
+            communication,
+            responsibility,
+            leadership,
+            technical_contribution,
+        ]
+        if s is not None
+    ]
     overall = sum(scores) / len(scores) if scores else None
 
     teacher_row = RubricScore(
@@ -138,23 +142,19 @@ async def submit_corrections(
     }
 
 
-# ---------------------------------------------------------------------------
-# GET /validate/{session_id}
-# ---------------------------------------------------------------------------
-
-
-@router.get("/{session_id}", summary="Get system and teacher scores side by side")
+@router.get(
+    "/{session_id}", summary="Obtener puntajes del sistema y del docente lado a lado"
+)
 async def get_validation(
     session_id: str,
     db: AsyncSession = Depends(get_db),
 ) -> Dict[str, Any]:
-    """Return system-generated and teacher-corrected rubric scores for comparison."""
+    """Retorna los puntajes de rúbrica del sistema y del docente para comparación."""
     try:
         session_uuid = UUID(session_id)
     except ValueError as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=str(exc),
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
         )
 
     stmt = select(AnalysisSession).where(AnalysisSession.id == session_uuid)
@@ -164,7 +164,7 @@ async def get_validation(
     if session is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Analysis session {session_id} not found",
+            detail=f"Sesión {session_id} no encontrada",
         )
 
     scores_stmt = select(RubricScore).where(RubricScore.session_id == session_uuid)
@@ -185,7 +185,9 @@ async def get_validation(
         }
 
     system_scores = [_serialize(s) for s in all_scores if s.evaluator_type == "system"]
-    teacher_scores = [_serialize(s) for s in all_scores if s.evaluator_type == "teacher"]
+    teacher_scores = [
+        _serialize(s) for s in all_scores if s.evaluator_type == "teacher"
+    ]
 
     return {
         "session_id": session_id,

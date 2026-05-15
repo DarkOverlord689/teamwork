@@ -1,3 +1,10 @@
+/* App.tsx - Componente principal de la aplicación SMATC-UPAO
+ *
+ * Configura el enrutador, el tema visual y el store de Redux.
+ * Renderiza las cuatro páginas principales: Dashboard, Subir Video,
+ * Reportes y Detalle de Grupo.
+ */
+
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Provider } from "react-redux";
 import { ThemeProvider, createTheme, CssBaseline } from "@mui/material";
@@ -9,19 +16,17 @@ import Upload from "./pages/Upload";
 import Reports from "./pages/Reports";
 import GroupDetail from "./pages/GroupDetail";
 
+/* Tema personalizado de Material UI con colores primario (azul) y secundario (rojo) */
 const theme = createTheme({
   palette: {
-    primary: {
-      main: "#1976d2",
-    },
-    secondary: {
-      main: "#dc004e",
-    },
+    primary: { main: "#1976d2" },
+    secondary: { main: "#dc004e" },
   },
 });
 
 function App() {
   return (
+    /* Provider expone el store de Redux a todos los componentes hijos */
     <Provider store={store}>
       <ThemeProvider theme={theme}>
         <CssBaseline />

@@ -1,3 +1,15 @@
+"""upload.py - Endpoints de subida de videos
+
+Permite al docente subir un video de una sesión grupal y:
+1. Valida el formato y tamaño del archivo
+2. Crea o reutiliza un grupo en la base de datos
+3. Guarda el video en MinIO (o en disco como respaldo)
+4. Crea una sesión de análisis en estado 'pending'
+5. Despacha una tarea Celery para procesar el video
+
+También expone un endpoint para consultar el estado del procesamiento.
+"""
+
 import asyncio
 import os
 import uuid
@@ -15,8 +27,10 @@ from app.utils.config import settings
 
 router = APIRouter()
 
+# Tipos de contenido de video permitidos
 ALLOWED_CONTENT_TYPES = {"video/mp4", "video/avi", "video/quicktime"}
 
+# Mensajes de progreso según el estado de la sesión
 PROGRESS_MESSAGES = {
     "pending": "En cola, esperando procesamiento...",
     "processing": "Analizando el video...",
@@ -27,7 +41,7 @@ PROGRESS_MESSAGES = {
 
 
 def _upload_to_minio(file_bytes: bytes, bucket: str, key: str) -> None:
-    """Synchronous MinIO upload, intended to be called via asyncio.to_thread."""
+    """Sube el archivo a MinIO usando S3 API."""
     import boto3
     from botocore.exceptions import BotoCoreError, ClientError
 
@@ -50,14 +64,22 @@ async def upload_video(
     group_id: str | None = Form(default=None),
     db: AsyncSession = Depends(get_db),
 ):
-    # 1. Validate content type
+    """Sube un video para análisis.
+
+    1. Valida el formato del archivo
+    2. Busca o crea el grupo
+    3. Guarda el video en MinIO o local
+    4. Crea la sesión de análisis
+    5. Despacha la tarea Celery
+    """
+    # 1. Validar formato
     if file.content_type not in ALLOWED_CONTENT_TYPES:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Formato no soportado. Use MP4, AVI o MOV",
         )
 
-    # 2. Resolve group
+    # 2. Resolver o crear el grupo
     group: Group | None = None
 
     if group_id:
@@ -65,8 +87,7 @@ async def upload_video(
             parsed_id = uuid.UUID(group_id)
         except ValueError:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="group_id inválido",
+                status_code=status.HTTP_400_BAD_REQUEST, detail="group_id inválido"
             )
         result = await db.execute(select(Group).where(Group.id == parsed_id))
         group = result.scalar_one_or_none()
@@ -76,24 +97,23 @@ async def upload_video(
                 detail=f"Grupo {group_id} no encontrado",
             )
     else:
-        # Derive group name from form field or filename
         resolved_name = group_name or Path(file.filename or "video").stem
         group = Group(name=resolved_name)
         db.add(group)
-        await db.flush()  # populate group.id before using it
+        await db.flush()
 
-    # 3. Read file content and persist (MinIO or /tmp fallback)
+    # 3. Leer y guardar el archivo
     file_bytes = await file.read()
     safe_filename = file.filename or f"{uuid.uuid4()}.mp4"
     s3_key = f"videos/{group.id}/{safe_filename}"
 
     try:
-        await asyncio.to_thread(_upload_to_minio, file_bytes, settings.s3_bucket, s3_key)
+        await asyncio.to_thread(
+            _upload_to_minio, file_bytes, settings.s3_bucket, s3_key
+        )
         video_path = s3_key
         logger.info("Video uploaded to MinIO: {}", s3_key)
     except Exception as exc:
-        # Fallback: save to the shared upload directory so that the
-        # celery-worker container (which mounts the same volume) can read it.
         _tmp_dir = settings.upload_tmp_dir
         tmp_path = f"{_tmp_dir}/{uuid.uuid4()}_{safe_filename}"
         try:
@@ -104,9 +124,9 @@ async def upload_video(
             )
         except Exception as tmp_exc:
             logger.error("Failed to save video locally: {}", tmp_exc)
-            video_path = f"{_tmp_dir}/{safe_filename}"  # best-effort placeholder
+            video_path = f"{_tmp_dir}/{safe_filename}"
 
-    # 4. Create AnalysisSession
+    # 4. Crear la sesión de análisis
     session = AnalysisSession(
         group_id=group.id,
         video_path=video_path,
@@ -118,17 +138,16 @@ async def upload_video(
     await db.refresh(session)
     await db.refresh(group)
 
-    # 5. Dispatch Celery task
+    # 5. Despachar tarea Celery para procesamiento asíncrono
     try:
         from app.tasks import process_video_task
 
         process_video_task.delay(video_path=video_path, session_id=str(session.id))
         logger.info("Celery task dispatched for session {}", session.id)
     except Exception as exc:
-        # If Celery / broker is unavailable, mark as processing so the caller
-        # knows work is conceptually in progress; a worker will pick it up when
-        # the broker comes back, or an operator can re-trigger manually.
-        logger.warning("Could not dispatch Celery task ({}); status stays 'pending'", exc)
+        logger.warning(
+            "Could not dispatch Celery task ({}); status stays 'pending'", exc
+        )
 
     return {
         "session_id": str(session.id),
@@ -139,7 +158,7 @@ async def upload_video(
 
 
 def _write_tmp(file_bytes: bytes, path: str) -> None:
-    """Write bytes to a local file path (sync, for asyncio.to_thread)."""
+    """Escribe bytes a un archivo local (síncrono, para usar con asyncio.to_thread)."""
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "wb") as fh:
         fh.write(file_bytes)
@@ -147,12 +166,12 @@ def _write_tmp(file_bytes: bytes, path: str) -> None:
 
 @router.get("/{session_id}/status")
 async def get_upload_status(session_id: str, db: AsyncSession = Depends(get_db)):
+    """Consulta el estado actual de una sesión de análisis."""
     try:
         parsed_id = uuid.UUID(session_id)
     except ValueError:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="session_id inválido",
+            status_code=status.HTTP_400_BAD_REQUEST, detail="session_id inválido"
         )
 
     result = await db.execute(
@@ -171,7 +190,9 @@ async def get_upload_status(session_id: str, db: AsyncSession = Depends(get_db))
     session_obj, group_obj = row
 
     effective_status = session_obj.status
-    effective_progress_message = PROGRESS_MESSAGES.get(session_obj.status, "Estado desconocido")
+    effective_progress_message = PROGRESS_MESSAGES.get(
+        session_obj.status, "Estado desconocido"
+    )
 
     normalized_status = effective_status if effective_status != "failed" else "error"
     return {
