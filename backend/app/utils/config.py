@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     # Audio Processing (Module 2.2)
     audio_sample_rate: int = Field(default=16000)
     audio_device: str = Field(default="auto")
-    pyannote_auth_token: str = Field(default="")
+    deepgram_api_key: str = Field(default="")
     whisper_model_size: str = Field(default="medium")
     whisper_language: str = Field(default="es")
     enable_audio_diarization: bool = Field(default=True)

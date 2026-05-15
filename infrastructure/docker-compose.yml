@@ -48,6 +48,8 @@ services:
         condition: service_started
     networks:
       - smatc-network
+    env_file:
+      - .env
     environment:
       - DATABASE_URL=postgresql://smatc:smatc123@postgres:5432/smatc
       - REDIS_URL=redis://redis:6379/0
@@ -57,6 +59,8 @@ services:
       - S3_BUCKET=videos
       - UPLOAD_TMP_DIR=/shared/uploads
       - FRAMES_DIR=/shared/uploads/frames
+      - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY}
+      - DEEPGRAM_MODEL=${DEEPGRAM_MODEL:-nova-2}
     volumes:
       - ../backend:/app
       - models-cache:/models
@@ -88,7 +92,8 @@ services:
       - UPLOAD_TMP_DIR=/shared/uploads
       - FRAMES_DIR=/shared/uploads/frames
       - NVIDIA_VISIBLE_DEVICES=all
-      - PYANNOTE_AUTH_TOKEN=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
+      - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY}
+      - DEEPGRAM_MODEL=${DEEPGRAM_MODEL:-nova-2}
     volumes:
       - ../backend:/app
       - models-cache:/models

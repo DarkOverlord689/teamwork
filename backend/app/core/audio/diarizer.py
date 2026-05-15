@@ -1,7 +1,7 @@
-"""Speaker diarization using Pyannote Audio 3.1.
+"""Speaker diarization using Deepgram Nova-2.
 
-Wraps the ``pyannote/speaker-diarization-3.1`` pretrained pipeline and
-produces a list of :class:`~app.core.audio.data_types.SpeakerSegment`
+Uses the Deepgram ``listen.v1.media.transcribe_file`` API with ``diarize=True``
+to produce a list of :class:`~app.core.audio.data_types.SpeakerSegment`
 objects sorted by start time with normalized speaker IDs
 (``speaker_0``, ``speaker_1``, … assigned in order of first appearance).
 """
@@ -10,19 +10,12 @@ from __future__ import annotations
 
 import logging
 from collections import OrderedDict
+from pathlib import Path
 from typing import List
 
 from app.core.audio.base_processor import AudioBaseProcessor
 from app.core.audio.config import AudioConfig
 from app.core.audio.data_types import SpeakerSegment
-
-# Import Pipeline at module level so it is patchable in tests.
-# Wrapped in try/except so the module can be imported in environments
-# where pyannote.audio is not installed (e.g. CI without GPU).
-try:
-    from pyannote.audio import Pipeline  # type: ignore  # noqa: F401
-except ImportError:  # pragma: no cover
-    Pipeline = None  # type: ignore
 
 logger = logging.getLogger(__name__)
 
@@ -37,17 +30,27 @@ class DiarizationError(Exception):
 
 
 # ---------------------------------------------------------------------------
+# Deepgram import (lazy, for testability)
+# ---------------------------------------------------------------------------
+
+try:
+    from deepgram import DeepgramClient  # type: ignore
+except ImportError:  # pragma: no cover
+    DeepgramClient = None  # type: ignore
+
+
+# ---------------------------------------------------------------------------
 # Diarizer
 # ---------------------------------------------------------------------------
 
 
 class Diarizer(AudioBaseProcessor):
-    """Run Pyannote speaker diarization on an audio file.
+    """Run Deepgram speaker diarization on an audio file.
 
     Parameters
     ----------
     config : AudioConfig
-        Pipeline configuration including auth token, speaker bounds, and
+        Pipeline configuration including Deepgram API key, speaker bounds, and
         minimum segment duration.
     """
 
@@ -56,63 +59,42 @@ class Diarizer(AudioBaseProcessor):
     def __init__(self, config: AudioConfig) -> None:
         super().__init__(device=config.audio_device)
         self.config = config
-        self._pipeline = None
+        self._client = None
 
     # ------------------------------------------------------------------
     # Lifecycle
     # ------------------------------------------------------------------
 
     def load(self) -> None:
-        """Load the Pyannote speaker-diarization-3.1 pipeline.
+        """Validate that the Deepgram API key is available.
 
         Raises
         ------
         DiarizationError
-            If ``pyannote_auth_token`` is empty or the pipeline cannot be loaded.
+            If ``deepgram_api_key`` is empty or the SDK is not installed.
         """
-        if not self.config.pyannote_auth_token:
+        if not self.config.deepgram_api_key:
             raise DiarizationError(
-                "pyannote_auth_token is required to load the Pyannote pipeline. "
-                "Obtain a token from https://huggingface.co/settings/tokens and "
-                "set AudioConfig.pyannote_auth_token."
+                "deepgram_api_key is required for diarization. "
+                "Obtain a key from https://console.deepgram.com/signup and "
+                "set AudioConfig.deepgram_api_key."
             )
 
-        try:
-            import torch  # type: ignore
-
-            if Pipeline is None:
-                raise DiarizationError(
-                    "pyannote.audio is not installed. "
-                    "Install it with: pip install pyannote.audio"
-                )
-
-            logger.info("Loading Pyannote speaker-diarization-3.1 pipeline…")
-            self._pipeline = Pipeline.from_pretrained(
-                "pyannote/speaker-diarization-3.1",
-                use_auth_token=self.config.pyannote_auth_token,
-            )
-            if self._pipeline is None:
-                raise DiarizationError(
-                    "Pyannote pipeline could not be loaded — Pipeline.from_pretrained returned None. "
-                    "Ensure your token is valid and you have accepted the model conditions at "
-                    "https://hf.co/pyannote/speaker-diarization-3.1"
-                )
-            self._pipeline.to(torch.device(self.device))
-            self._loaded = True
-            logger.info("Pyannote pipeline loaded on device=%s", self.device)
-
-        except DiarizationError:
-            raise
-        except Exception as exc:
+        if DeepgramClient is None:
             raise DiarizationError(
-                f"Failed to load Pyannote pipeline: {exc}"
-            ) from exc
+                "deepgram-sdk is not installed. "
+                "Install it with: pip install deepgram-sdk"
+            )
+
+        self._client = DeepgramClient(api_key=self.config.deepgram_api_key)
+        self._loaded = True
+        logger.info("Deepgram client initialised for diarization")
 
     def unload(self) -> None:
-        """Release the Pyannote pipeline and free memory."""
-        self._pipeline = None
+        """Release the Deepgram client reference."""
+        self._client = None
         self._loaded = False
-        logger.info("Pyannote pipeline unloaded")
+        logger.info("Deepgram client unloaded")
 
     # ------------------------------------------------------------------
     # Inference
@@ -134,29 +116,47 @@ class Diarizer(AudioBaseProcessor):
         Raises
         ------
         DiarizationError
-            If the pipeline has not been loaded or inference fails.
+            If the client has not been initialised or the API call fails.
         """
-        if not self._loaded or self._pipeline is None:
+        if not self._loaded or self._client is None:
             raise DiarizationError(
                 "Diarizer is not loaded. Call load() or use as a context manager."
             )
 
+        path = Path(audio_path)
+        if not path.is_file():
+            raise DiarizationError(f"Audio file not found: {audio_path}")
+
         try:
-            logger.info("Running diarization on %s", audio_path)
-            diarization = self._pipeline(
-                audio_path,
-                min_speakers=self.config.diarize_min_speakers,
-                max_speakers=self.config.diarize_max_speakers,
-            )
+            logger.info("Running Deepgram diarization on %s", audio_path)
+            with open(audio_path, "rb") as audio:
+                response = self._client.listen.v1.media.transcribe_file(
+                    request=audio.read(),
+                    model=self.config.deepgram_model,
+                    diarize=True,
+                    punctuate=True,
+                    language=self.config.whisper_language,
+                    smart_format=True,
+                )
         except Exception as exc:
             raise DiarizationError(
-                f"Pyannote inference failed on '{audio_path}': {exc}"
+                f"Deepgram diarization failed on '{audio_path}': {exc}"
             ) from exc
 
-        # Collect raw (start, end, raw_label) triples
+        # Extract utterances with speaker labels
+        utterances = (
+            response.results.utterances
+            if response.results and response.results.utterances
+            else []
+        )
+        if not utterances:
+            logger.warning("Deepgram returned no utterances for %s", audio_path)
+            return []
+
         raw_tracks: list[tuple[float, float, str]] = []
-        for turn, _, speaker_label in diarization.itertracks(yield_label=True):
-            raw_tracks.append((float(turn.start), float(turn.end), str(speaker_label)))
+        for u in utterances:
+            speaker = str(getattr(u, "speaker", 0))
+            raw_tracks.append((float(u.start), float(u.end), speaker))
 
         # Normalize labels by order of first appearance
         label_map: dict[str, str] = OrderedDict()
@@ -196,7 +196,7 @@ class Diarizer(AudioBaseProcessor):
         raw_labels: list[str],
         label_map: dict[str, str] | None = None,
     ) -> list[str]:
-        """Normalize raw Pyannote speaker labels to ``speaker_0``, ``speaker_1``, …
+        """Normalize raw speaker labels to ``speaker_0``, ``speaker_1``, …
 
         Labels are assigned in order of **first appearance** in *raw_labels*,
         not alphabetically.
@@ -204,7 +204,7 @@ class Diarizer(AudioBaseProcessor):
         Parameters
         ----------
         raw_labels : list[str]
-            Raw labels as returned by ``itertracks`` (e.g. ``"SPEAKER_02"``).
+            Raw labels as returned by Deepgram (e.g. ``"0"``, ``"1"``).
         label_map : dict, optional
             If provided, the mapping is written into this dict (useful for
             inspecting the final mapping after the call).

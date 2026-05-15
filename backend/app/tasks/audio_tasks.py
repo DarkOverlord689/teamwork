@@ -23,8 +23,7 @@ def _build_audio_config(overrides: Optional[Dict[str, Any]] = None):
     config = AudioConfig(
         audio_sample_rate=settings.audio_sample_rate,
         audio_device=settings.audio_device,
-        pyannote_auth_token=settings.pyannote_auth_token,
-        openai_api_key=settings.openai_api_key,
+        deepgram_api_key=settings.deepgram_api_key,
         whisper_language=settings.whisper_language,
         enable_diarization=settings.enable_audio_diarization,
         enable_transcription=settings.enable_audio_transcription,
@@ -228,6 +227,7 @@ def _run_key_frame_selection_and_dispatch(
     )
 
     from app.tasks.vision_tasks import process_video_smart_task
+
     process_video_smart_task.delay(video_path, session_id)
     logger.info("Smart vision task dispatched for session %s", session_id)
 
@@ -257,7 +257,9 @@ def process_audio_task(
     """
     from app.core.audio.pipeline import AudioPipeline
 
-    logger.info("Starting audio task for session %s – video: %s", session_id, video_path)
+    logger.info(
+        "Starting audio task for session %s – video: %s", session_id, video_path
+    )
 
     # Mark as processing
     _update_session_status(session_id, "processing")
@@ -266,11 +268,15 @@ def process_audio_task(
         config = _build_audio_config(config_overrides)
 
         # Report initial progress
-        self.update_state(state="PROGRESS", meta={"progress": 0.0, "stage": "loading_models"})
+        self.update_state(
+            state="PROGRESS", meta={"progress": 0.0, "stage": "loading_models"}
+        )
 
         with AudioPipeline(config) as pipeline:
             # Report that models are loaded
-            self.update_state(state="PROGRESS", meta={"progress": 0.05, "stage": "extracting_audio"})
+            self.update_state(
+                state="PROGRESS", meta={"progress": 0.05, "stage": "extracting_audio"}
+            )
 
             result = pipeline.process_audio(
                 video_path,
@@ -281,7 +287,9 @@ def process_audio_task(
             )
 
         # Report completion
-        self.update_state(state="PROGRESS", meta={"progress": 1.0, "stage": "saving_results"})
+        self.update_state(
+            state="PROGRESS", meta={"progress": 1.0, "stage": "saving_results"}
+        )
 
         result_dict = result.to_dict()
 
@@ -299,9 +307,12 @@ def process_audio_task(
 
         # Chain: dispatch next task based on smart frame selection flag
         if settings.sfs_enabled:
-            _run_key_frame_selection_and_dispatch(session_id, video_path, result, result_dict)
+            _run_key_frame_selection_and_dispatch(
+                session_id, video_path, result, result_dict
+            )
         else:
             from app.tasks.fusion_tasks import process_fusion_task
+
             process_fusion_task.delay(session_id)
             logger.info("Fusion task dispatched for session %s", session_id)
 

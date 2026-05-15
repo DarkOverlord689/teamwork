@@ -1,12 +1,8 @@
-"""OpenAI Whisper API transcription processor for the audio pipeline.
+"""Deepgram transcription processor for the audio pipeline.
 
-``Transcriber`` calls the OpenAI ``audio.transcriptions`` API to produce
-per-segment transcripts with timestamps, then aligns those transcription
+``Transcriber`` calls the Deepgram ``listen.v1.media.transcribe_file`` API to
+produce per-word transcripts with timestamps, then aligns those transcription
 segments to the diariser's ``SpeakerSegment`` output to assign speaker labels.
-
-Replacing the local Whisper model eliminates the SIGSEGV / OOM crash that
-occurred when loading model weights after diarization on memory-constrained
-CPU workers.
 """
 
 from __future__ import annotations
@@ -24,18 +20,23 @@ from app.core.audio.data_types import SpeakerSegment, TranscriptSegment, WordTim
 logger = logging.getLogger(__name__)
 
 
+try:
+    from deepgram import DeepgramClient  # type: ignore
+except ImportError:  # pragma: no cover
+    DeepgramClient = None  # type: ignore
+
+
 class TranscriptionError(Exception):
     """Raised when transcription fails for a segment."""
 
 
 class Transcriber(AudioBaseProcessor):
-    """ASR transcription using the OpenAI Whisper API (whisper-1).
+    """ASR transcription using the Deepgram API (nova-2).
 
-    The entire audio file is sent to OpenAI in a single request using
-    ``response_format="verbose_json"``, which returns segment-level timestamps.
-    Those segments are then aligned to the diarisation output to assign
-    speaker IDs.  No local model weights are loaded, so memory usage is
-    negligible.
+    The entire audio waveform is encoded as a WAV file in memory and sent to
+    Deepgram in a single request.  The response includes per-word timestamps
+    and speaker labels when diarization was enabled upstream.  No local model
+    weights are loaded, so memory usage is negligible.
 
     Parameters
     ----------
@@ -48,19 +49,35 @@ class Transcriber(AudioBaseProcessor):
     def __init__(self, config: AudioConfig) -> None:
         super().__init__(device=config.audio_device)
         self.config = config
-        self._client = None  # openai.OpenAI instance, created lazily
+        self._client = None
 
     # ------------------------------------------------------------------
-    # Lifecycle (no-ops — no local model to manage)
+    # Lifecycle (lightweight — client is stateless)
     # ------------------------------------------------------------------
 
     def load(self) -> None:
-        """No-op: no local model weights to load for the API-based transcriber."""
+        """Validate that the Deepgram API key is available."""
+        if not self.config.deepgram_api_key:
+            logger.error(
+                "deepgram_api_key is not set in AudioConfig — transcription skipped."
+            )
+            raise TranscriptionError("deepgram_api_key is required for transcription.")
+
+        if DeepgramClient is None:
+            raise TranscriptionError(
+                "deepgram-sdk is not installed. "
+                "Install it with: pip install deepgram-sdk"
+            )
+
+        self._client = DeepgramClient(api_key=self.config.deepgram_api_key)
         self._loaded = True
+        logger.info("Deepgram client initialised for transcription")
 
     def unload(self) -> None:
-        """No-op: no local model weights to release."""
+        """Release the Deepgram client reference."""
+        self._client = None
         self._loaded = False
+        logger.info("Deepgram client unloaded")
 
     # ------------------------------------------------------------------
     # Core processing
@@ -84,73 +101,107 @@ class Transcriber(AudioBaseProcessor):
         Returns
         -------
         list[TranscriptSegment]
-            One entry per OpenAI transcription segment, with the speaker ID
-            assigned via maximum-overlap alignment against diarisation segments.
+            One entry per Deepgram utterance, with the speaker ID assigned via
+            maximum-overlap alignment against diarisation segments.
         """
         if not segments:
             return []
 
-        api_key = self.config.openai_api_key
-        if not api_key:
-            logger.error(
-                "openai_api_key is not set in AudioConfig — transcription skipped."
+        if not self._loaded or self._client is None:
+            raise TranscriptionError(
+                "Transcriber is not loaded. Call load() or use as a context manager."
             )
-            return []
 
-        # Build the OpenAI client lazily so the import only happens here.
-        import openai
-
-        client = openai.OpenAI(api_key=api_key)
-
-        # Encode the full waveform as a WAV file in memory so we can pass it
-        # directly to the API without touching disk.
         wav_bytes = _waveform_to_wav_bytes(waveform, self.config.audio_sample_rate)
 
         try:
-            response = client.audio.transcriptions.create(
-                model="whisper-1",
-                file=("audio.wav", wav_bytes, "audio/wav"),
+            response = self._client.listen.v1.media.transcribe_file(
+                request=wav_bytes,
+                model=self.config.deepgram_model,
+                punctuate=True,
                 language=self.config.whisper_language,
-                response_format="verbose_json",
-                timestamp_granularities=["segment"],
+                smart_format=True,
             )
-        except openai.OpenAIError as exc:
-            raise TranscriptionError(f"OpenAI transcription API failed: {exc}") from exc
+        except Exception as exc:
+            raise TranscriptionError(
+                f"Deepgram transcription API failed: {exc}"
+            ) from exc
 
-        # ``response.segments`` is a list of objects with .start, .end, .text.
-        api_segments = getattr(response, "segments", None) or []
+        alternatives = (
+            response.results.channels[0].alternatives
+            if response.results and response.results.channels
+            else []
+        )
+        if not alternatives:
+            logger.warning("Deepgram returned no alternatives")
+            return []
 
+        words = alternatives[0].words or []
+        if not words:
+            logger.warning("Deepgram returned no words")
+            return []
+
+        # Group consecutive words from the same speaker into transcript segments
         results: list[TranscriptSegment] = []
-        language: str = getattr(response, "language", self.config.whisper_language) or self.config.whisper_language
+        current_words: list[WordTimestamp] = []
+        current_speaker = None
+        seg_start = 0.0
 
-        for api_seg in api_segments:
-            seg_start: float = float(api_seg.start)
-            seg_end: float = float(api_seg.end)
-            text: str = (api_seg.text or "").strip()
-
-            if not text:
-                continue
-
-            speaker_id = _assign_speaker(seg_start, seg_end, segments)
-
-            # The verbose_json segment-level response does not include per-word
-            # timestamps unless timestamp_granularities includes "word".  We
-            # request segment-only granularity to keep payload small, so
-            # words is empty here.
-            results.append(
-                TranscriptSegment(
-                    start=seg_start,
-                    end=seg_end,
-                    speaker_id=speaker_id,
-                    text=text,
-                    words=[],
-                    language=language,
-                    no_speech_prob=0.0,
-                )
+        for word in words:
+            speaker = str(getattr(word, "speaker", "0"))
+            wt = WordTimestamp(
+                word=word.word or "",
+                start=word.start,
+                end=word.end,
+                confidence=getattr(word, "confidence", 0.0) or 0.0,
             )
+
+            if current_speaker is None:
+                current_speaker = speaker
+                seg_start = word.start
+                current_words = [wt]
+            elif speaker == current_speaker:
+                current_words.append(wt)
+            else:
+                text = " ".join(w.word for w in current_words).strip()
+                if text:
+                    speaker_id = _assign_speaker(
+                        seg_start, current_words[-1].end, segments
+                    )
+                    results.append(
+                        TranscriptSegment(
+                            start=seg_start,
+                            end=current_words[-1].end,
+                            speaker_id=speaker_id,
+                            text=text,
+                            words=current_words,
+                            language=self.config.whisper_language,
+                            no_speech_prob=0.0,
+                        )
+                    )
+                current_speaker = speaker
+                seg_start = word.start
+                current_words = [wt]
+
+        # Flush final segment
+        if current_words:
+            text = " ".join(w.word for w in current_words).strip()
+            if text:
+                speaker_id = _assign_speaker(seg_start, current_words[-1].end, segments)
+                results.append(
+                    TranscriptSegment(
+                        start=seg_start,
+                        end=current_words[-1].end,
+                        speaker_id=speaker_id,
+                        text=text,
+                        words=current_words,
+                        language=self.config.whisper_language,
+                        no_speech_prob=0.0,
+                    )
+                )
 
         logger.info(
-            "OpenAI transcription: %d API segments aligned to %d speaker segments.",
+            "Deepgram transcription: %d utterance segments aligned to %d speaker segments.",
             len(results),
             len(segments),
         )
@@ -164,14 +215,13 @@ class Transcriber(AudioBaseProcessor):
 
 def _waveform_to_wav_bytes(waveform: np.ndarray, sample_rate: int) -> bytes:
     """Encode a float32 mono waveform as a 16-bit PCM WAV byte string."""
-    # Clamp to [-1, 1] and convert to int16.
     pcm = np.clip(waveform, -1.0, 1.0)
     pcm_int16 = (pcm * 32767).astype(np.int16)
 
     buf = io.BytesIO()
     with wave.open(buf, "wb") as wf:
         wf.setnchannels(1)
-        wf.setsampwidth(2)  # 16-bit
+        wf.setsampwidth(2)
         wf.setframerate(sample_rate)
         wf.writeframes(pcm_int16.tobytes())
 
@@ -199,7 +249,6 @@ def _assign_speaker(
             best_speaker = ds.speaker_id
 
     if best_overlap == 0.0 and diarization_segments:
-        # Nearest-midpoint fallback.
         mid = (seg_start + seg_end) / 2.0
         best_speaker = min(
             diarization_segments,

@@ -11,7 +11,7 @@ from app.core.audio.pipeline import AudioPipeline
 
 def test_pipeline_context_manager() -> None:
     """Pipeline should load and unload processors on enter/exit."""
-    config = AudioConfig(pyannote_auth_token="fake")
+    config = AudioConfig(deepgram_api_key="fake")
     pipeline = AudioPipeline(config)
 
     pipeline._extractor = MagicMock()
@@ -26,7 +26,9 @@ def test_pipeline_context_manager() -> None:
     pipeline._diarizer.unload.assert_called_once()
 
 
-def test_pipeline_process_audio_returns_audio_result(tmp_path: pytest.TempPathFactory) -> None:
+def test_pipeline_process_audio_returns_audio_result(
+    tmp_path: pytest.TempPathFactory,
+) -> None:
     """process_audio() should return an AudioResult."""
     import soundfile as sf
 
@@ -42,7 +44,11 @@ def test_pipeline_process_audio_returns_audio_result(tmp_path: pytest.TempPathFa
 
     pipeline = AudioPipeline(config)
     pipeline._extractor = MagicMock()
-    pipeline._extractor.process.return_value = (np.zeros(32000, dtype=np.float32), 16000, 2.0)
+    pipeline._extractor.process.return_value = (
+        np.zeros(32000, dtype=np.float32),
+        16000,
+        2.0,
+    )
     pipeline._extractor.write_temp_wav.return_value = str(wav)
     pipeline._extractor.is_loaded = True
     pipeline.load_all()  # won't fail since _diarizer/_transcriber are None
@@ -68,7 +74,11 @@ def test_pipeline_progress_callback_called(tmp_path: pytest.TempPathFactory) -> 
     )
     pipeline = AudioPipeline(config)
     pipeline._extractor = MagicMock()
-    pipeline._extractor.process.return_value = (np.zeros(32000, dtype=np.float32), 16000, 2.0)
+    pipeline._extractor.process.return_value = (
+        np.zeros(32000, dtype=np.float32),
+        16000,
+        2.0,
+    )
     pipeline._extractor.write_temp_wav.return_value = str(wav)
 
     progress_values: list[float] = []
@@ -104,7 +114,7 @@ def test_pipeline_enabled_components_are_created() -> None:
         enable_transcription=True,
         enable_interruption=True,
         enable_participation=True,
-        pyannote_auth_token="dummy",
+        deepgram_api_key="dummy",
     )
     pipeline = AudioPipeline(config)
     assert pipeline._diarizer is not None
