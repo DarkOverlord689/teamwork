@@ -137,6 +137,7 @@ class Diarizer(AudioBaseProcessor):
                     punctuate=True,
                     language=self.config.whisper_language,
                     smart_format=True,
+                    utterances=True,
                 )
         except Exception as exc:
             raise DiarizationError(
