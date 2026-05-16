@@ -77,7 +77,6 @@ interface AnalysisData {
 }
 export default function GroupDetail() {
   const { groupId } = useParams<{ groupId: string }>();
-  const dispatch = useDispatch();
 
   const [analysisData, setAnalysisData] = useState<AnalysisData[]>([]);
   const [loading, setLoading] = useState(true);
