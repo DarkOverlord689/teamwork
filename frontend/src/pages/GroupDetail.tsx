@@ -9,23 +9,17 @@
 
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
-import { useDispatch } from "react-redux";
 import {
   Container, Typography, Grid, Card, CardContent, Box, Chip,
   CircularProgress, Tabs, Tab, Table, TableBody, TableCell, TableHead,
   TableRow, Accordion, AccordionSummary, AccordionDetails, TextField,
-  Button, List, ListItem, ListItemIcon, ListItemText, Alert, Paper,
+  List, ListItem, ListItemIcon, ListItemText, Alert, Paper,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 
-import { showSnackbar } from "../store/slices/uiSlice";
-import { groupService, validationService } from "../services/api";
-import type { ValidationPayload } from "../services/api";
-import ParticipationChart from "../components/charts/ParticipationChart";
-import RubricRadarChart from "../components/charts/RubricRadarChart";
-import TranscriptView from '../components/audit/TranscriptView';
+import { groupService } from "../services/api";
 import AuditTimeline from '../components/audit/AuditTimeline';
 
 /* Métricas por estudiante que vienen del backend */
@@ -81,21 +75,6 @@ interface AnalysisData {
   rubric_scores?: RubricScores;
   explanation?: Explanation;
 }
-
-/* Datos de validación docente */
-interface ValidationData {
-  session_id: string;
-  corrections?: Array<{
-    student_id: string;
-    collaboration?: number;
-    communication?: number;
-    responsibility?: number;
-    leadership?: number;
-    technical_contribution?: number;
-  }>;
-  teacher_note?: string;
-}
-
 export default function GroupDetail() {
   const { groupId } = useParams<{ groupId: string }>();
   const dispatch = useDispatch();
@@ -105,8 +84,6 @@ export default function GroupDetail() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState(0);
   const [selectedSession, setSelectedSession] = useState<AnalysisData | null>(null);
-  const [validationData, setValidationData] = useState<ValidationData | null>(null);
-  const [loadingValidation, setLoadingValidation] = useState(false);
 
   /* Carga los datos de análisis del grupo */
   useEffect(() => {
@@ -130,46 +107,9 @@ export default function GroupDetail() {
     }
   };
 
-  /* Busca el estudiante por ID en las métricas */
-  const findStudentMetric = (studentId: string): StudentMetric | undefined => {
-    if (!selectedSession?.group_metrics?.per_student_metrics) return undefined;
-    return selectedSession.group_metrics.per_student_metrics.find(
-      (sm) => sm.student_id === studentId
-    );
-  };
-
-  /* Carga los datos de validación del docente para la sesión */
-  const loadValidation = async (sessionId: string) => {
-    setLoadingValidation(true);
-    try {
-      const data: ValidationData = await validationService.getValidation(sessionId);
-      setValidationData(data);
-    } catch {
-      /* Si no hay validación, se muestra el formulario vacío */
-      setValidationData(null);
-    } finally {
-      setLoadingValidation(false);
-    }
-  };
-
   /* Maneja el cambio de pestaña */
   const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
     setActiveTab(newValue);
-    if (newValue === 3 && selectedSession) {
-      loadValidation(selectedSession.id);
-    }
-  };
-
-  /* Envía las correcciones del docente al backend */
-  const handleValidationSubmit = async (corrections: ValidationPayload) => {
-    if (!selectedSession) return;
-    try {
-      await validationService.submitCorrections(selectedSession.id, corrections);
-      dispatch(showSnackbar({ message: "Correcciones guardadas", severity: "success" }));
-      loadValidation(selectedSession.id);
-    } catch {
-      dispatch(showSnackbar({ message: "Error al guardar correcciones", severity: "error" }));
-    }
   };
 
   /* Pantalla de carga */
