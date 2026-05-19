@@ -128,6 +128,7 @@ class GroupMetrics:
 
     total_students: int
     duration_seconds: float
+    total_speaking_time: float  # sum of all student speaking times
     participation_cv: float  # coefficient of variation of speaking times; target < 0.3
     disruptive_interruption_rate: float  # disruptive interruptions / total turns
     turn_synchronization_score: float  # 0.0–1.0; ratio of smooth transitions
@@ -139,6 +140,7 @@ class GroupMetrics:
         return {
             "total_students": self.total_students,
             "duration_seconds": self.duration_seconds,
+            "total_speaking_time": self.total_speaking_time,
             "participation_cv": self.participation_cv,
             "disruptive_interruption_rate": self.disruptive_interruption_rate,
             "turn_synchronization_score": self.turn_synchronization_score,
@@ -213,8 +215,12 @@ class ExplanationResult:
     generated_by: str = "llm"  # "llm" | "rule_based"
     model_used: str | None = None
     # LLM-generated session-level and per-student fields
-    topic_description: str | None = None  # 2-3 sentence description of the session topic
-    intervention_summaries: Dict[str, str] = field(default_factory=dict)  # student_id -> summary
+    topic_description: str | None = (
+        None  # 2-3 sentence description of the session topic
+    )
+    intervention_summaries: Dict[str, str] = field(
+        default_factory=dict
+    )  # student_id -> summary
 
     def to_dict(self) -> dict:
         return {

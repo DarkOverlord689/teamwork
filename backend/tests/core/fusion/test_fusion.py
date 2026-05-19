@@ -178,6 +178,7 @@ def _make_group_metrics() -> GroupMetrics:
     return GroupMetrics(
         total_students=2,
         duration_seconds=10.0,
+        total_speaking_time=8.0,
         participation_cv=0.10,
         disruptive_interruption_rate=0.10,
         turn_synchronization_score=0.80,
@@ -216,8 +217,12 @@ class TestFusionConfig:
 class TestDataTypes:
     def test_temporal_window_to_dict(self) -> None:
         w = TemporalWindow(
-            start=0.0, end=0.5, speaker_id="s0", person_id="p0",
-            gaze_at_camera=True, overlap_ratio=0.8,
+            start=0.0,
+            end=0.5,
+            speaker_id="s0",
+            person_id="p0",
+            gaze_at_camera=True,
+            overlap_ratio=0.8,
         )
         d = w.to_dict()
         assert d["speaker_id"] == "s0"
@@ -247,8 +252,11 @@ class TestDataTypes:
             per_student_scores=[
                 RubricScores(
                     student_id="speaker_0",
-                    collaboration=4.0, communication=3.5,
-                    responsibility=4.0, leadership=3.0, technical_contribution=3.5,
+                    collaboration=4.0,
+                    communication=3.5,
+                    responsibility=4.0,
+                    leadership=3.0,
+                    technical_contribution=3.5,
                 )
             ],
         )
@@ -339,18 +347,30 @@ class TestMetricsCalculator:
         calc = MetricsCalculator(FusionConfig())
         students = [
             StudentMetrics(
-                student_id="s0", speaking_time_seconds=5.0, turn_count=2,
-                interruption_count=0, interrupted_count=0,
-                participation_ratio=0.5, gaze_contact_percentage=50.0,
-                avg_body_orientation=0.0, dominant_emotion="neutral",
-                initiation_count=1, back_channel_count=0,
+                student_id="s0",
+                speaking_time_seconds=5.0,
+                turn_count=2,
+                interruption_count=0,
+                interrupted_count=0,
+                participation_ratio=0.5,
+                gaze_contact_percentage=50.0,
+                avg_body_orientation=0.0,
+                dominant_emotion="neutral",
+                initiation_count=1,
+                back_channel_count=0,
             ),
             StudentMetrics(
-                student_id="s1", speaking_time_seconds=5.0, turn_count=2,
-                interruption_count=0, interrupted_count=0,
-                participation_ratio=0.5, gaze_contact_percentage=50.0,
-                avg_body_orientation=0.0, dominant_emotion="neutral",
-                initiation_count=1, back_channel_count=0,
+                student_id="s1",
+                speaking_time_seconds=5.0,
+                turn_count=2,
+                interruption_count=0,
+                interrupted_count=0,
+                participation_ratio=0.5,
+                gaze_contact_percentage=50.0,
+                avg_body_orientation=0.0,
+                dominant_emotion="neutral",
+                initiation_count=1,
+                back_channel_count=0,
             ),
         ]
         cv = calc.calculate_participation_cv(students)
@@ -360,18 +380,30 @@ class TestMetricsCalculator:
         calc = MetricsCalculator(FusionConfig())
         students = [
             StudentMetrics(
-                student_id="s0", speaking_time_seconds=9.0, turn_count=5,
-                interruption_count=0, interrupted_count=0,
-                participation_ratio=0.9, gaze_contact_percentage=50.0,
-                avg_body_orientation=0.0, dominant_emotion="neutral",
-                initiation_count=3, back_channel_count=0,
+                student_id="s0",
+                speaking_time_seconds=9.0,
+                turn_count=5,
+                interruption_count=0,
+                interrupted_count=0,
+                participation_ratio=0.9,
+                gaze_contact_percentage=50.0,
+                avg_body_orientation=0.0,
+                dominant_emotion="neutral",
+                initiation_count=3,
+                back_channel_count=0,
             ),
             StudentMetrics(
-                student_id="s1", speaking_time_seconds=1.0, turn_count=1,
-                interruption_count=0, interrupted_count=0,
-                participation_ratio=0.1, gaze_contact_percentage=50.0,
-                avg_body_orientation=0.0, dominant_emotion="neutral",
-                initiation_count=0, back_channel_count=0,
+                student_id="s1",
+                speaking_time_seconds=1.0,
+                turn_count=1,
+                interruption_count=0,
+                interrupted_count=0,
+                participation_ratio=0.1,
+                gaze_contact_percentage=50.0,
+                avg_body_orientation=0.0,
+                dominant_emotion="neutral",
+                initiation_count=0,
+                back_channel_count=0,
             ),
         ]
         cv = calc.calculate_participation_cv(students)
@@ -465,16 +497,24 @@ class TestUPAORubricMapper:
         mapper = UPAORubricMapper(FusionConfig())
         students = [
             StudentMetrics(
-                student_id=f"s{i}", speaking_time_seconds=5.0, turn_count=3,
-                interruption_count=0, interrupted_count=0,
-                participation_ratio=0.5, gaze_contact_percentage=90.0,
-                avg_body_orientation=0.0, dominant_emotion="neutral",
-                initiation_count=1, back_channel_count=0,
+                student_id=f"s{i}",
+                speaking_time_seconds=5.0,
+                turn_count=3,
+                interruption_count=0,
+                interrupted_count=0,
+                participation_ratio=0.5,
+                gaze_contact_percentage=90.0,
+                avg_body_orientation=0.0,
+                dominant_emotion="neutral",
+                initiation_count=1,
+                back_channel_count=0,
             )
             for i in range(2)
         ]
         gm = GroupMetrics(
-            total_students=2, duration_seconds=10.0,
+            total_students=2,
+            duration_seconds=10.0,
+            total_speaking_time=8.0,
             participation_cv=0.0,  # perfect equity
             disruptive_interruption_rate=0.0,
             turn_synchronization_score=1.0,
@@ -599,7 +639,9 @@ class TestFusionPipeline:
         config = FusionConfig(enable_explanation=False)
         pipeline = FusionPipeline(config)
 
-        result = asyncio.run(pipeline.process(_make_vision_result(), _make_audio_result()))
+        result = asyncio.run(
+            pipeline.process(_make_vision_result(), _make_audio_result())
+        )
 
         gm = result.group_metrics
         assert gm.total_students >= 1
@@ -609,7 +651,9 @@ class TestFusionPipeline:
         config = FusionConfig(enable_explanation=False)
         pipeline = FusionPipeline(config)
 
-        result = asyncio.run(pipeline.process(_make_vision_result(), _make_audio_result()))
+        result = asyncio.run(
+            pipeline.process(_make_vision_result(), _make_audio_result())
+        )
 
         rs = result.rubric_scores
         assert 0.0 <= rs.collaboration <= 5.0
@@ -619,7 +663,9 @@ class TestFusionPipeline:
         config = FusionConfig(enable_explanation=False)
         pipeline = FusionPipeline(config)
 
-        result = asyncio.run(pipeline.process(_make_vision_result(), _make_audio_result()))
+        result = asyncio.run(
+            pipeline.process(_make_vision_result(), _make_audio_result())
+        )
 
         assert result.explanation.generated_by == "rule_based"
 
@@ -632,7 +678,11 @@ class TestFusionPipeline:
         def cb(p: float, msg: str) -> None:
             progress_values.append(p)
 
-        asyncio.run(pipeline.process(_make_vision_result(), _make_audio_result(), progress_callback=cb))
+        asyncio.run(
+            pipeline.process(
+                _make_vision_result(), _make_audio_result(), progress_callback=cb
+            )
+        )
 
         assert len(progress_values) > 0
         assert progress_values[0] == pytest.approx(0.0)
@@ -645,7 +695,9 @@ class TestFusionPipeline:
         config = FusionConfig(enable_explanation=False)
         pipeline = FusionPipeline(config)
 
-        result = asyncio.run(pipeline.process(_make_vision_result(), _make_audio_result()))
+        result = asyncio.run(
+            pipeline.process(_make_vision_result(), _make_audio_result())
+        )
         d = result.to_dict()
 
         # Should not raise

@@ -58,11 +58,13 @@ class MetricsCalculator:
             One entry per unique speaker/person identified.
         """
         if audio_result.session_metrics is None:
-            logger.warning("AudioResult has no session_metrics; metrics will be approximate")
+            logger.warning(
+                "AudioResult has no session_metrics; metrics will be approximate"
+            )
 
-        total_speaking_time = sum(
-            t.duration for t in audio_result.turns
-        ) or 1.0  # avoid div-by-zero
+        total_speaking_time = (
+            sum(t.duration for t in audio_result.turns) or 1.0
+        )  # avoid div-by-zero
 
         speaker_metrics: Dict[str, dict] = {}
 
@@ -183,7 +185,9 @@ class MetricsCalculator:
 
         return metrics_list
 
-    def calculate_participation_cv(self, student_metrics: List[StudentMetrics]) -> float:
+    def calculate_participation_cv(
+        self, student_metrics: List[StudentMetrics]
+    ) -> float:
         """Compute the coefficient of variation of speaking times.
 
         CV = std / mean.  A value below ``config.cv_threshold`` (0.3) indicates
@@ -285,7 +289,8 @@ class MetricsCalculator:
         turn_sync = self.calculate_turn_synchronization_score(audio_result)
 
         avg_gaze = (
-            sum(m.gaze_contact_percentage for m in student_metrics) / len(student_metrics)
+            sum(m.gaze_contact_percentage for m in student_metrics)
+            / len(student_metrics)
             if student_metrics
             else 0.0
         )
@@ -295,9 +300,13 @@ class MetricsCalculator:
         silent_windows = sum(1 for w in aligned.windows if w.speaker_id is None)
         silence_ratio = silent_windows / total_windows
 
+        # Calculate total speaking time from student metrics
+        total_speaking_time = sum(m.speaking_time_seconds for m in student_metrics)
+
         return GroupMetrics(
             total_students=len(student_metrics),
             duration_seconds=aligned.duration_seconds,
+            total_speaking_time=total_speaking_time,
             participation_cv=participation_cv,
             disruptive_interruption_rate=disruptive_rate,
             turn_synchronization_score=turn_sync,

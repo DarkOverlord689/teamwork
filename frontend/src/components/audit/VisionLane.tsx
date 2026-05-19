@@ -12,6 +12,13 @@ import CloseIcon from '@mui/icons-material/Close';
 import { VisionWindow } from '../../types/audit';
 import { getEmotionColor } from './utils/speakerColor';
 import { formatTime } from './utils/timeFormat';
+import {
+  EMOTION_LABELS,
+  ATTENTION_LABELS,
+  ENGAGEMENT_LABELS,
+  MOMENT_TYPE_LABELS,
+  translateLabel,
+} from './utils/visionLabels';
 
 interface VisionLaneProps {
   personId: string;
@@ -93,8 +100,8 @@ function FrameModal({ window, personId, onClose }: FrameModalProps) {
             <Typography variant="caption" color="text.secondary">
               Emoción dominante
             </Typography>
-            <Typography variant="body2" fontWeight={600} sx={{ textTransform: 'capitalize' }}>
-              {window.emotion_primary ?? window.dominant_emotion}
+            <Typography variant="body2" fontWeight={600}>
+              {translateLabel(window.emotion_primary ?? window.dominant_emotion, EMOTION_LABELS)}
               {window.emotion_confidence != null && (
                 <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>
                   ({(window.emotion_confidence * 100).toFixed(0)}%)
@@ -115,8 +122,8 @@ function FrameModal({ window, personId, onClose }: FrameModalProps) {
               <Typography variant="caption" color="text.secondary">
                 Dirección de atención
               </Typography>
-              <Typography variant="body2" fontWeight={600} sx={{ textTransform: 'capitalize' }}>
-                {window.attention_direction}
+              <Typography variant="body2" fontWeight={600}>
+                {translateLabel(window.attention_direction, ATTENTION_LABELS)}
               </Typography>
             </Box>
           )}
@@ -125,8 +132,8 @@ function FrameModal({ window, personId, onClose }: FrameModalProps) {
               <Typography variant="caption" color="text.secondary">
                 Nivel de engagement
               </Typography>
-              <Typography variant="body2" fontWeight={600} sx={{ textTransform: 'capitalize' }}>
-                {window.engagement_level}
+              <Typography variant="body2" fontWeight={600}>
+                {translateLabel(window.engagement_level, ENGAGEMENT_LABELS)}
               </Typography>
             </Box>
           )}
@@ -135,8 +142,8 @@ function FrameModal({ window, personId, onClose }: FrameModalProps) {
               <Typography variant="caption" color="text.secondary">
                 Tipo de momento
               </Typography>
-              <Typography variant="body2" fontWeight={600} sx={{ textTransform: 'capitalize' }}>
-                {window.moment_type.replace(/_/g, ' ')}
+              <Typography variant="body2" fontWeight={600}>
+                {translateLabel(window.moment_type, MOMENT_TYPE_LABELS)}
               </Typography>
             </Box>
           )}

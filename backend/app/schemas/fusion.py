@@ -66,6 +66,7 @@ class StudentMetricsSchema(BaseModel):
 class GroupMetricsSchema(BaseModel):
     total_students: int
     duration_seconds: float
+    total_speaking_time: float
     participation_cv: float
     disruptive_interruption_rate: float
     turn_synchronization_score: float
@@ -137,7 +138,8 @@ class StartFusionRequest(BaseModel):
 
     session_id: UUID = Field(..., description="ID of the analysis session to process")
     config_overrides: Optional[dict] = Field(
-        None, description="Optional FusionConfig overrides (e.g. llm_model, enable_explanation)"
+        None,
+        description="Optional FusionConfig overrides (e.g. llm_model, enable_explanation)",
     )
 
 
