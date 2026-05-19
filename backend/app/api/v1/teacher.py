@@ -14,7 +14,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.models import AnalysisSession, Group, RubricScore
+from app.models import AnalysisSession, Group
 
 router = APIRouter()
 
@@ -49,11 +49,13 @@ async def get_teacher_dashboard(
     completed_sessions: int = groups_by_status.get("completed", 0)
 
     avg_cv = 0.0
+    avg_rubric_overall = 0.0
     try:
         cv_stmt = select(AnalysisSession).where(AnalysisSession.status == "completed")
         cv_result = await db.execute(cv_stmt)
         completed_rows: List[AnalysisSession] = list(cv_result.scalars().all())
         cv_values = []
+        rubric_values = []
         for row in completed_rows:
             rd = getattr(row, "result_data", None) or {}
             fusion = rd.get("fusion", rd)
@@ -61,15 +63,18 @@ async def get_teacher_dashboard(
             cv = gm.get("participation_cv")
             if cv is not None:
                 cv_values.append(float(cv))
+            # Get overall_score from rubric_scores in result_data
+            rubric = fusion.get("rubric_scores", {})
+            overall = rubric.get("overall_score")
+            if overall is not None:
+                rubric_values.append(float(overall))
         if cv_values:
             avg_cv = sum(cv_values) / len(cv_values)
+        if rubric_values:
+            avg_rubric_overall = sum(rubric_values) / len(rubric_values)
     except Exception:
         avg_cv = 0.0
-
-    rubric_stmt = select(func.avg(RubricScore.overall_score)).where(
-        RubricScore.evaluator_type == "system", RubricScore.overall_score.isnot(None)
-    )
-    avg_rubric_overall: float = (await db.execute(rubric_stmt)).scalar_one() or 0.0
+        avg_rubric_overall = 0.0
 
     recent_stmt = (
         select(AnalysisSession, Group.name.label("group_name"))
@@ -86,12 +91,11 @@ async def get_teacher_dashboard(
         session: AnalysisSession = row[0]
         g_name: str = row[1]
 
-        rubric_row_stmt = select(func.avg(RubricScore.overall_score)).where(
-            RubricScore.session_id == session.id,
-            RubricScore.evaluator_type == "system",
-            RubricScore.overall_score.isnot(None),
-        )
-        overall = (await db.execute(rubric_row_stmt)).scalar_one() or 0.0
+        # Get overall_score from result_data fusion rubric_scores
+        rd = getattr(session, "result_data", None) or {}
+        fusion = rd.get("fusion", rd)
+        rubric = fusion.get("rubric_scores", {})
+        overall = rubric.get("overall_score", 0.0)
 
         recent_sessions.append(
             {
@@ -155,20 +159,10 @@ async def get_group_comparison(
 
     history = []
     for session in sessions:
-        rubric_stmt = select(
-            func.avg(RubricScore.collaboration_score).label("collaboration"),
-            func.avg(RubricScore.communication_score).label("communication"),
-            func.avg(RubricScore.responsibility_score).label("responsibility"),
-            func.avg(RubricScore.leadership_score).label("leadership"),
-            func.avg(RubricScore.technical_contribution_score).label(
-                "technical_contribution"
-            ),
-            func.avg(RubricScore.overall_score).label("overall"),
-        ).where(
-            RubricScore.session_id == session.id, RubricScore.evaluator_type == "system"
-        )
-        rubric_result = await db.execute(rubric_stmt)
-        rubric_row = rubric_result.one()
+        # Get rubric scores from result_data fusion
+        rd = getattr(session, "result_data", None) or {}
+        fusion = rd.get("fusion", rd)
+        rubric = fusion.get("rubric_scores", {})
 
         def _safe(val: Any) -> float:
             return round(float(val), 2) if val is not None else 0.0
@@ -182,12 +176,14 @@ async def get_group_comparison(
                 else None,
                 "duration_seconds": session.duration_seconds,
                 "rubric_scores": {
-                    "collaboration": _safe(rubric_row.collaboration),
-                    "communication": _safe(rubric_row.communication),
-                    "responsibility": _safe(rubric_row.responsibility),
-                    "leadership": _safe(rubric_row.leadership),
-                    "technical_contribution": _safe(rubric_row.technical_contribution),
-                    "overall": _safe(rubric_row.overall),
+                    "collaboration": _safe(rubric.get("collaboration")),
+                    "communication": _safe(rubric.get("communication")),
+                    "responsibility": _safe(rubric.get("responsibility")),
+                    "leadership": _safe(rubric.get("leadership")),
+                    "technical_contribution": _safe(
+                        rubric.get("technical_contribution")
+                    ),
+                    "overall": _safe(rubric.get("overall_score")),
                 },
             }
         )

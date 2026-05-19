@@ -296,46 +296,46 @@ export default function GroupDetail() {
                       <AccordionDetails>
                         <Table size="small" sx={{ mb: 2 }}>
                           <TableBody>
-                            <TableRow>
-                              <TableCell>Colaboración</TableCell>
-                              <TableCell>
-                                <TextField type="number" size="small" fullWidth
-                                  inputProps={{ min: 0, max: 20, step: 0.5 }}
-                                  defaultValue={rubric?.collaboration ?? 10} />
-                              </TableCell>
-                            </TableRow>
-                            <TableRow>
-                              <TableCell>Comunicación</TableCell>
-                              <TableCell>
-                                <TextField type="number" size="small" fullWidth
-                                  inputProps={{ min: 0, max: 20, step: 0.5 }}
-                                  defaultValue={rubric?.communication ?? 10} />
-                              </TableCell>
-                            </TableRow>
-                            <TableRow>
-                              <TableCell>Responsabilidad</TableCell>
-                              <TableCell>
-                                <TextField type="number" size="small" fullWidth
-                                  inputProps={{ min: 0, max: 20, step: 0.5 }}
-                                  defaultValue={rubric?.responsibility ?? 10} />
-                              </TableCell>
-                            </TableRow>
-                            <TableRow>
-                              <TableCell>Liderazgo</TableCell>
-                              <TableCell>
-                                <TextField type="number" size="small" fullWidth
-                                  inputProps={{ min: 0, max: 20, step: 0.5 }}
-                                  defaultValue={rubric?.leadership ?? 10} />
-                              </TableCell>
-                            </TableRow>
-                            <TableRow>
-                              <TableCell>Contribución Técnica</TableCell>
-                              <TableCell>
-                                <TextField type="number" size="small" fullWidth
-                                  inputProps={{ min: 0, max: 20, step: 0.5 }}
-                                  defaultValue={rubric?.technical_contribution ?? 10} />
-                              </TableCell>
-                            </TableRow>
+                             <TableRow>
+                               <TableCell>Colaboración</TableCell>
+                               <TableCell>
+                                 <TextField type="number" size="small" fullWidth
+                                   inputProps={{ min: 0, max: 20, step: 0.5 }}
+                                   defaultValue={rubric?.collaboration?.toFixed(1) ?? 10} />
+                               </TableCell>
+                             </TableRow>
+                             <TableRow>
+                               <TableCell>Comunicación</TableCell>
+                               <TableCell>
+                                 <TextField type="number" size="small" fullWidth
+                                   inputProps={{ min: 0, max: 20, step: 0.5 }}
+                                   defaultValue={rubric?.communication?.toFixed(1) ?? 10} />
+                               </TableCell>
+                             </TableRow>
+                             <TableRow>
+                               <TableCell>Responsabilidad</TableCell>
+                               <TableCell>
+                                 <TextField type="number" size="small" fullWidth
+                                   inputProps={{ min: 0, max: 20, step: 0.5 }}
+                                   defaultValue={rubric?.responsibility?.toFixed(1) ?? 10} />
+                               </TableCell>
+                             </TableRow>
+                             <TableRow>
+                               <TableCell>Liderazgo</TableCell>
+                               <TableCell>
+                                 <TextField type="number" size="small" fullWidth
+                                   inputProps={{ min: 0, max: 20, step: 0.5 }}
+                                   defaultValue={rubric?.leadership?.toFixed(1) ?? 10} />
+                               </TableCell>
+                             </TableRow>
+                             <TableRow>
+                               <TableCell>Contribución Técnica</TableCell>
+                               <TableCell>
+                                 <TextField type="number" size="small" fullWidth
+                                   inputProps={{ min: 0, max: 20, step: 0.5 }}
+                                   defaultValue={rubric?.technical_contribution?.toFixed(1) ?? 10} />
+                               </TableCell>
+                             </TableRow>
                           </TableBody>
                         </Table>
                         <TextField label="Nota del docente" multiline rows={3} fullWidth size="small" />
