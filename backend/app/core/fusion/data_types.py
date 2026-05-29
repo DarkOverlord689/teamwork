@@ -3,7 +3,7 @@
 These dataclasses define the structured output at every level of the fusion
 pipeline: temporal alignment windows (TemporalWindow), aligned feature sets
 (AlignedFeatures), per-student fused metrics (StudentMetrics), group-level
-aggregates (GroupMetrics), rubric scoring (RubricScores, GroupRubricScores),
+aggregates (GroupMetrics), VALUE rubric scoring (RubricScores, GroupRubricScores),
 LLM explanation results (ExplanationResult), and the full fusion output
 (FusionResult).
 """
@@ -124,7 +124,7 @@ class StudentMetrics:
 
 @dataclass
 class GroupMetrics:
-    """Aggregated group-level collaboration metrics."""
+    """Aggregated group-level team metrics."""
 
     total_students: int
     duration_seconds: float
@@ -149,50 +149,60 @@ class GroupMetrics:
 
 
 # ---------------------------------------------------------------------------
-# UPAO rubric scores
+# VALUE rubric scores (AAC&U Teamwork Rubric)
 # ---------------------------------------------------------------------------
 
 
 @dataclass
 class RubricScores:
-    """UPAO rubric dimension scores (0–20 scale) for one student."""
+    """VALUE teamwork rubric scores (0–20 scale) for one student.
+
+    Maps to the AAC&U VALUE rubric for Teamwork/Collaboration with these
+    dimensions:
+
+    * contributes_to_team_meetings: active participation + idea contribution
+    * facilitates_contributions: engaging + building on others' ideas
+    * fosters_constructive_climate: respect, positive tone, body language
+    * responds_to_conflict: addressing disagreements constructively
+    * individual_contributions_outside: placeholder (requires external data)
+    """
 
     student_id: str
-    collaboration: float  # turn distribution + visual contact
-    communication: float  # interruption rate + turn synchronization
-    responsibility: float  # participation consistency + CV contribution
-    leadership: float  # speaking share + topic initiation
-    technical_contribution: float  # turn count + transcript keyword density
+    contributes_to_team_meetings: float
+    facilitates_contributions: float
+    fosters_constructive_climate: float
+    responds_to_conflict: float
+    individual_contributions_outside: float = 0.0
 
     def to_dict(self) -> dict:
         return {
             "student_id": self.student_id,
-            "collaboration": self.collaboration,
-            "communication": self.communication,
-            "responsibility": self.responsibility,
-            "leadership": self.leadership,
-            "technical_contribution": self.technical_contribution,
+            "contributes_to_team_meetings": self.contributes_to_team_meetings,
+            "facilitates_contributions": self.facilitates_contributions,
+            "fosters_constructive_climate": self.fosters_constructive_climate,
+            "responds_to_conflict": self.responds_to_conflict,
+            "individual_contributions_outside": self.individual_contributions_outside,
         }
 
 
 @dataclass
 class GroupRubricScores:
-    """UPAO rubric scores averaged at group level (0–20 scale)."""
+    """VALUE teamwork rubric scores averaged at group level (0–20 scale)."""
 
-    collaboration: float
-    communication: float
-    responsibility: float
-    leadership: float
-    technical_contribution: float
+    contributes_to_team_meetings: float
+    facilitates_contributions: float
+    fosters_constructive_climate: float
+    responds_to_conflict: float
+    individual_contributions_outside: float = 0.0
     per_student_scores: List[RubricScores] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return {
-            "collaboration": self.collaboration,
-            "communication": self.communication,
-            "responsibility": self.responsibility,
-            "leadership": self.leadership,
-            "technical_contribution": self.technical_contribution,
+            "contributes_to_team_meetings": self.contributes_to_team_meetings,
+            "facilitates_contributions": self.facilitates_contributions,
+            "fosters_constructive_climate": self.fosters_constructive_climate,
+            "responds_to_conflict": self.responds_to_conflict,
+            "individual_contributions_outside": self.individual_contributions_outside,
             "per_student_scores": [s.to_dict() for s in self.per_student_scores],
         }
 

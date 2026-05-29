@@ -99,11 +99,11 @@ export const metricsService = {
 export interface ValidationPayload {
   student_id: string;
   rubric_corrections: {
-    collaboration?: number;
-    communication?: number;
-    responsibility?: number;
-    leadership?: number;
-    technical_contribution?: number;
+    contributes_to_team_meetings?: number;
+    facilitates_contributions?: number;
+    fosters_constructive_climate?: number;
+    responds_to_conflict?: number;
+    individual_contributions_outside?: number;
   };
   teacher_note: string;
 }

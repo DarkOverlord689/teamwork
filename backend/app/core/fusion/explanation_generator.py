@@ -70,11 +70,15 @@ class ExplanationGenerator:
         ExplanationResult
         """
         if not self.config.enable_explanation:
-            logger.info("Explanation generation disabled by config; using rule-based fallback")
+            logger.info(
+                "Explanation generation disabled by config; using rule-based fallback"
+            )
             return self._rule_based_explanation(group_metrics, rubric_scores)
 
         try:
-            return await self._llm_explanation(group_metrics, rubric_scores, audio_result)
+            return await self._llm_explanation(
+                group_metrics, rubric_scores, audio_result
+            )
         except Exception as exc:
             logger.warning(
                 "LLM explanation failed (%s); falling back to rule-based explanation",
@@ -113,7 +117,9 @@ class ExplanationGenerator:
         return self._parse_llm_response(raw_text)
 
     @staticmethod
-    def _build_transcript_excerpt(audio_result: Optional["AudioResult"], max_chars: int = 2000) -> str:
+    def _build_transcript_excerpt(
+        audio_result: Optional["AudioResult"], max_chars: int = 2000
+    ) -> str:
         """Build a condensed transcript excerpt grouped by speaker.
 
         Returns an empty string when no transcripts are available.
@@ -161,9 +167,12 @@ class ExplanationGenerator:
         )
 
         score_lines = "\n".join(
-            f"  - {s.student_id}: colaboración={s.collaboration:.1f}, "
-            f"comunicación={s.communication:.1f}, responsabilidad={s.responsibility:.1f}, "
-            f"liderazgo={s.leadership:.1f}, contribución_técnica={s.technical_contribution:.1f}"
+            f"  - {s.student_id}: "
+            f"contribuye_a_reuniones={s.contributes_to_team_meetings:.1f}, "
+            f"facilita_contribuciones={s.facilitates_contributions:.1f}, "
+            f"clima_constructivo={s.fosters_constructive_climate:.1f}, "
+            f"responde_a_conflictos={s.responds_to_conflict:.1f}, "
+            f"contribuciones_fuera={s.individual_contributions_outside:.1f}"
             for s in rubric_scores.per_student_scores
         )
 
@@ -195,7 +204,7 @@ en grupos de ingeniería.  Con base en las métricas y transcripción de la sesi
 === MÉTRICAS POR ESTUDIANTE ===
 {student_lines}
 
-=== PUNTUACIONES RÚBRICA UPAO (escala 0-20) ===
+=== PUNTUACIONES RÚBRICA VALUE (escala 0-20) ===
 {score_lines}
 {transcript_block}
 === INSTRUCCIONES ===
@@ -284,7 +293,7 @@ RECOMENDACIONES:
         intervention_summaries: Dict[str, str] = {}
         for key, value in sections.items():
             if key.upper().startswith("INTERVENCION_"):
-                student_id = key[len("INTERVENCION_"):]
+                student_id = key[len("INTERVENCION_") :]
                 if value:
                     intervention_summaries[student_id] = value
 
@@ -327,13 +336,21 @@ RECOMENDACIONES:
         # Strengths
         strengths: List[str] = []
         if cv < self.config.cv_threshold:
-            strengths.append("Participación equilibrada entre todos los integrantes del grupo.")
+            strengths.append(
+                "Participación equilibrada entre todos los integrantes del grupo."
+            )
         if sync >= 0.7:
-            strengths.append("Los turnos de habla se coordinaron de forma fluida y ordenada.")
+            strengths.append(
+                "Los turnos de habla se coordinaron de forma fluida y ordenada."
+            )
         if gaze >= 60.0:
-            strengths.append("Buen nivel de contacto visual, indicando atención y compromiso.")
+            strengths.append(
+                "Buen nivel de contacto visual, indicando atención y compromiso."
+            )
         if intr <= 0.1:
-            strengths.append("Pocas interrupciones disruptivas; respeto por los turnos de habla.")
+            strengths.append(
+                "Pocas interrupciones disruptivas; respeto por los turnos de habla."
+            )
 
         if not strengths:
             strengths.append("El grupo completó la actividad colaborativa.")
