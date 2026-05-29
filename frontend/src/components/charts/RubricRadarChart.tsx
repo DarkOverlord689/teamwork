@@ -12,11 +12,11 @@ import { Radar } from "react-chartjs-2";
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend);
 
 interface RubricScores {
-  collaboration: number;
-  communication: number;
-  responsibility: number;
-  leadership: number;
-  technical_contribution: number;
+  contributes_to_team_meetings: number;
+  facilitates_contributions: number;
+  fosters_constructive_climate: number;
+  responds_to_conflict: number;
+  individual_contributions_outside: number;
 }
 
 interface RubricRadarChartProps {
@@ -25,20 +25,20 @@ interface RubricRadarChartProps {
 }
 
 const DIMENSION_LABELS = [
-  "Colaboración",
-  "Comunicación",
-  "Responsabilidad",
-  "Liderazgo",
-  "Contribución Técnica",
+  "Contribuye en Reuniones",
+  "Facilita Contribuciones",
+  "Clima Constructivo",
+  "Responde a Conflictos",
+  "Contrib. Fuera de Reuniones",
 ];
 
 export default function RubricRadarChart({ scores, label }: RubricRadarChartProps) {
   const dataValues = [
-    scores.collaboration,
-    scores.communication,
-    scores.responsibility,
-    scores.leadership,
-    scores.technical_contribution,
+    scores.contributes_to_team_meetings,
+    scores.facilitates_contributions,
+    scores.fosters_constructive_climate,
+    scores.responds_to_conflict,
+    scores.individual_contributions_outside,
   ];
 
   const chartData = {

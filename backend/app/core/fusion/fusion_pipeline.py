@@ -3,7 +3,7 @@
 FusionPipeline orquesta las cuatro etapas de fusión:
   1. Alineación temporal    (TemporalAligner)
   2. Cálculo de métricas    (MetricsCalculator)
-  3. Mapeo de rúbrica       (UPAORubricMapper)
+  3. Mapeo de rúbrica VALUE  (VALUERubricMapper)
   4. Generación de explicación (ExplanationGenerator)
 """
 
@@ -18,7 +18,7 @@ from app.core.fusion.config import FusionConfig
 from app.core.fusion.data_types import FusionResult
 from app.core.fusion.explanation_generator import ExplanationGenerator
 from app.core.fusion.metrics_calculator import MetricsCalculator
-from app.core.fusion.rubric_mapper import UPAORubricMapper
+from app.core.fusion.rubric_mapper import VALUERubricMapper
 from app.core.fusion.temporal_aligner import TemporalAligner
 from app.core.vision.data_types import VisionResult
 
@@ -30,7 +30,7 @@ class FusionPipeline:
         self.config = config or FusionConfig()
         self._aligner = TemporalAligner(self.config)
         self._metrics = MetricsCalculator(self.config)
-        self._mapper = UPAORubricMapper(self.config)
+        self._mapper = VALUERubricMapper(self.config)
         self._explainer = ExplanationGenerator(self.config)
 
     def load_all(self) -> None:
@@ -82,16 +82,15 @@ class FusionPipeline:
             group_metrics.turn_synchronization_score,
         )
 
-        _progress(0.65, "Mapping metrics to UPAO rubric")
+        _progress(0.65, "Mapping metrics to VALUE rubric")
         rubric_scores = self._mapper.map_group_to_rubric(group_metrics)
         _progress(0.75, "Rubric mapping complete")
         logger.info(
-            "Stage 3 complete: collab=%.1f comm=%.1f resp=%.1f lead=%.1f tech=%.1f",
-            rubric_scores.collaboration,
-            rubric_scores.communication,
-            rubric_scores.responsibility,
-            rubric_scores.leadership,
-            rubric_scores.technical_contribution,
+            "Stage 3 complete: contributes=%.1f facilitates=%.1f climate=%.1f conflict=%.1f",
+            rubric_scores.contributes_to_team_meetings,
+            rubric_scores.facilitates_contributions,
+            rubric_scores.fosters_constructive_climate,
+            rubric_scores.responds_to_conflict,
         )
 
         _progress(0.80, "Generating narrative explanation")

@@ -176,12 +176,18 @@ async def get_group_comparison(
                 else None,
                 "duration_seconds": session.duration_seconds,
                 "rubric_scores": {
-                    "collaboration": _safe(rubric.get("collaboration")),
-                    "communication": _safe(rubric.get("communication")),
-                    "responsibility": _safe(rubric.get("responsibility")),
-                    "leadership": _safe(rubric.get("leadership")),
-                    "technical_contribution": _safe(
-                        rubric.get("technical_contribution")
+                    "contributes_to_team_meetings": _safe(
+                        rubric.get("contributes_to_team_meetings")
+                    ),
+                    "facilitates_contributions": _safe(
+                        rubric.get("facilitates_contributions")
+                    ),
+                    "fosters_constructive_climate": _safe(
+                        rubric.get("fosters_constructive_climate")
+                    ),
+                    "responds_to_conflict": _safe(rubric.get("responds_to_conflict")),
+                    "individual_contributions_outside": _safe(
+                        rubric.get("individual_contributions_outside")
                     ),
                     "overall": _safe(rubric.get("overall_score")),
                 },

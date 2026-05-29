@@ -19,7 +19,7 @@ from app.core.fusion.data_types import (
 from app.core.fusion.explanation_generator import ExplanationGenerator
 from app.core.fusion.fusion_pipeline import FusionPipeline
 from app.core.fusion.metrics_calculator import MetricsCalculator
-from app.core.fusion.rubric_mapper import UPAORubricMapper
+from app.core.fusion.rubric_mapper import VALUERubricMapper
 from app.core.fusion.temporal_aligner import TemporalAligner
 
 __all__ = [
@@ -37,7 +37,7 @@ __all__ = [
     # Components
     "TemporalAligner",
     "MetricsCalculator",
-    "UPAORubricMapper",
+    "VALUERubricMapper",
     "ExplanationGenerator",
     # Pipeline
     "FusionPipeline",

@@ -44,13 +44,13 @@ interface GroupMetrics {
   per_student_metrics: StudentMetric[];
 }
 
-/* Puntajes de rúbrica UPAO */
+/* Puntajes de rúbrica VALUE (AAC&U Teamwork) */
 interface RubricScores {
-  collaboration: number;
-  communication: number;
-  responsibility: number;
-  leadership: number;
-  technical_contribution: number;
+  contributes_to_team_meetings: number;
+  facilitates_contributions: number;
+  fosters_constructive_climate: number;
+  responds_to_conflict: number;
+  individual_contributions_outside: number;
   overall_score?: number;
 }
 
@@ -215,24 +215,24 @@ export default function GroupDetail() {
             {rubric && (
               <Card>
                 <CardContent>
-                  <Typography variant="h6" gutterBottom>Puntajes Rúbrica UPAO</Typography>
+                  <Typography variant="h6" gutterBottom>Puntajes Rúbrica VALUE (AAC&U)</Typography>
                   <Table size="small">
                     <TableBody>
                       <TableRow>
-                        <TableCell>Colaboración</TableCell>
-                        <TableCell align="right">{rubric.collaboration?.toFixed(1) ?? "—"}</TableCell>
-                        <TableCell>Comunicación</TableCell>
-                        <TableCell align="right">{rubric.communication?.toFixed(1) ?? "—"}</TableCell>
+                        <TableCell>Contribuye en Reuniones</TableCell>
+                        <TableCell align="right">{rubric.contributes_to_team_meetings?.toFixed(1) ?? "—"}</TableCell>
+                        <TableCell>Facilita Contribuciones</TableCell>
+                        <TableCell align="right">{rubric.facilitates_contributions?.toFixed(1) ?? "—"}</TableCell>
                       </TableRow>
                       <TableRow>
-                        <TableCell>Responsabilidad</TableCell>
-                        <TableCell align="right">{rubric.responsibility?.toFixed(1) ?? "—"}</TableCell>
-                        <TableCell>Liderazgo</TableCell>
-                        <TableCell align="right">{rubric.leadership?.toFixed(1) ?? "—"}</TableCell>
+                        <TableCell>Clima Constructivo</TableCell>
+                        <TableCell align="right">{rubric.fosters_constructive_climate?.toFixed(1) ?? "—"}</TableCell>
+                        <TableCell>Responde a Conflictos</TableCell>
+                        <TableCell align="right">{rubric.responds_to_conflict?.toFixed(1) ?? "—"}</TableCell>
                       </TableRow>
                       <TableRow>
-                        <TableCell>Contribución Técnica</TableCell>
-                        <TableCell align="right">{rubric.technical_contribution?.toFixed(1) ?? "—"}</TableCell>
+                        <TableCell>Contrib. Fuera de Reuniones</TableCell>
+                        <TableCell align="right">{rubric.individual_contributions_outside?.toFixed(1) ?? "—"}</TableCell>
                         <TableCell>Puntaje General</TableCell>
                         <TableCell align="right">
                           <strong>{rubric.overall_score?.toFixed(1) ?? "—"}</strong>
@@ -297,43 +297,43 @@ export default function GroupDetail() {
                         <Table size="small" sx={{ mb: 2 }}>
                           <TableBody>
                              <TableRow>
-                               <TableCell>Colaboración</TableCell>
+                               <TableCell>Contribuye en Reuniones</TableCell>
                                <TableCell>
                                  <TextField type="number" size="small" fullWidth
                                    inputProps={{ min: 0, max: 20, step: 0.5 }}
-                                   defaultValue={rubric?.collaboration?.toFixed(1) ?? 10} />
+                                   defaultValue={rubric?.contributes_to_team_meetings?.toFixed(1) ?? 10} />
                                </TableCell>
                              </TableRow>
                              <TableRow>
-                               <TableCell>Comunicación</TableCell>
+                               <TableCell>Facilita Contribuciones</TableCell>
                                <TableCell>
                                  <TextField type="number" size="small" fullWidth
                                    inputProps={{ min: 0, max: 20, step: 0.5 }}
-                                   defaultValue={rubric?.communication?.toFixed(1) ?? 10} />
+                                   defaultValue={rubric?.facilitates_contributions?.toFixed(1) ?? 10} />
                                </TableCell>
                              </TableRow>
                              <TableRow>
-                               <TableCell>Responsabilidad</TableCell>
+                               <TableCell>Clima Constructivo</TableCell>
                                <TableCell>
                                  <TextField type="number" size="small" fullWidth
                                    inputProps={{ min: 0, max: 20, step: 0.5 }}
-                                   defaultValue={rubric?.responsibility?.toFixed(1) ?? 10} />
+                                   defaultValue={rubric?.fosters_constructive_climate?.toFixed(1) ?? 10} />
                                </TableCell>
                              </TableRow>
                              <TableRow>
-                               <TableCell>Liderazgo</TableCell>
+                               <TableCell>Responde a Conflictos</TableCell>
                                <TableCell>
                                  <TextField type="number" size="small" fullWidth
                                    inputProps={{ min: 0, max: 20, step: 0.5 }}
-                                   defaultValue={rubric?.leadership?.toFixed(1) ?? 10} />
+                                   defaultValue={rubric?.responds_to_conflict?.toFixed(1) ?? 10} />
                                </TableCell>
                              </TableRow>
                              <TableRow>
-                               <TableCell>Contribución Técnica</TableCell>
+                               <TableCell>Contrib. Fuera de Reuniones</TableCell>
                                <TableCell>
                                  <TextField type="number" size="small" fullWidth
                                    inputProps={{ min: 0, max: 20, step: 0.5 }}
-                                   defaultValue={rubric?.technical_contribution?.toFixed(1) ?? 10} />
+                                   defaultValue={rubric?.individual_contributions_outside?.toFixed(1) ?? 10} />
                                </TableCell>
                              </TableRow>
                           </TableBody>

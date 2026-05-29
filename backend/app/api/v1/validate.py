@@ -26,13 +26,13 @@ router = APIRouter()
 
 
 class RubricCorrections(BaseModel):
-    """Correcciones del docente para cada criterio de rúbrica (0-20)."""
+    """Correcciones del docente para cada criterio de rúbrica VALUE (0-20)."""
 
-    collaboration: float | None = Field(None, ge=0, le=20)
-    communication: float | None = Field(None, ge=0, le=20)
-    responsibility: float | None = Field(None, ge=0, le=20)
-    leadership: float | None = Field(None, ge=0, le=20)
-    technical_contribution: float | None = Field(None, ge=0, le=20)
+    contributes_to_team_meetings: float | None = Field(None, ge=0, le=20)
+    facilitates_contributions: float | None = Field(None, ge=0, le=20)
+    fosters_constructive_climate: float | None = Field(None, ge=0, le=20)
+    responds_to_conflict: float | None = Field(None, ge=0, le=20)
+    individual_contributions_outside: float | None = Field(None, ge=0, le=20)
 
 
 class ValidationRequest(BaseModel):
@@ -89,22 +89,26 @@ async def submit_corrections(
             return getattr(system_score, f"{system_attr}_score", None)
         return None
 
-    collaboration = _resolve(corr.collaboration, "collaboration")
-    communication = _resolve(corr.communication, "communication")
-    responsibility = _resolve(corr.responsibility, "responsibility")
-    leadership = _resolve(corr.leadership, "leadership")
-    technical_contribution = _resolve(
-        corr.technical_contribution, "technical_contribution"
+    contributes = _resolve(
+        corr.contributes_to_team_meetings, "contributes_to_team_meetings"
+    )
+    facilitates = _resolve(corr.facilitates_contributions, "facilitates_contributions")
+    climate = _resolve(
+        corr.fosters_constructive_climate, "fosters_constructive_climate"
+    )
+    conflict = _resolve(corr.responds_to_conflict, "responds_to_conflict")
+    outside = _resolve(
+        corr.individual_contributions_outside, "individual_contributions_outside"
     )
 
     scores = [
         s
         for s in [
-            collaboration,
-            communication,
-            responsibility,
-            leadership,
-            technical_contribution,
+            contributes,
+            facilitates,
+            climate,
+            conflict,
+            outside,
         ]
         if s is not None
     ]
@@ -114,11 +118,11 @@ async def submit_corrections(
         id=uuid.uuid4(),
         session_id=session_uuid,
         student_id=student_uuid,
-        collaboration_score=collaboration,
-        communication_score=communication,
-        responsibility_score=responsibility,
-        leadership_score=leadership,
-        technical_contribution_score=technical_contribution,
+        collaboration_score=contributes,
+        communication_score=facilitates,
+        responsibility_score=climate,
+        leadership_score=conflict,
+        technical_contribution_score=outside,
         overall_score=overall,
         evaluator_type="teacher",
     )
@@ -132,11 +136,11 @@ async def submit_corrections(
         "teacher_note": payload.teacher_note,
         "status": "validated",
         "teacher_scores": {
-            "collaboration": teacher_row.collaboration_score,
-            "communication": teacher_row.communication_score,
-            "responsibility": teacher_row.responsibility_score,
-            "leadership": teacher_row.leadership_score,
-            "technical_contribution": teacher_row.technical_contribution_score,
+            "contributes_to_team_meetings": teacher_row.collaboration_score,
+            "facilitates_contributions": teacher_row.communication_score,
+            "fosters_constructive_climate": teacher_row.responsibility_score,
+            "responds_to_conflict": teacher_row.leadership_score,
+            "individual_contributions_outside": teacher_row.technical_contribution_score,
             "overall": teacher_row.overall_score,
         },
     }
@@ -176,11 +180,11 @@ async def get_validation(
             "id": str(row.id),
             "student_id": str(row.student_id),
             "evaluator_type": row.evaluator_type,
-            "collaboration": row.collaboration_score,
-            "communication": row.communication_score,
-            "responsibility": row.responsibility_score,
-            "leadership": row.leadership_score,
-            "technical_contribution": row.technical_contribution_score,
+            "contributes_to_team_meetings": row.collaboration_score,
+            "facilitates_contributions": row.communication_score,
+            "fosters_constructive_climate": row.responsibility_score,
+            "responds_to_conflict": row.leadership_score,
+            "individual_contributions_outside": row.technical_contribution_score,
             "overall": row.overall_score,
         }
 

@@ -76,25 +76,25 @@ class GroupMetricsSchema(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# UPAO rubric scores
+# VALUE rubric scores (AAC&U Teamwork Rubric)
 # ---------------------------------------------------------------------------
 
 
 class RubricScoresSchema(BaseModel):
     student_id: str
-    collaboration: float
-    communication: float
-    responsibility: float
-    leadership: float
-    technical_contribution: float
+    contributes_to_team_meetings: float
+    facilitates_contributions: float
+    fosters_constructive_climate: float
+    responds_to_conflict: float
+    individual_contributions_outside: float = 0.0
 
 
 class GroupRubricScoresSchema(BaseModel):
-    collaboration: float
-    communication: float
-    responsibility: float
-    leadership: float
-    technical_contribution: float
+    contributes_to_team_meetings: float
+    facilitates_contributions: float
+    fosters_constructive_climate: float
+    responds_to_conflict: float
+    individual_contributions_outside: float = 0.0
     per_student_scores: List[RubricScoresSchema] = []
 
 
